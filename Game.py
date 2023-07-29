@@ -2,8 +2,11 @@
 
 __author__      = "Alexander Knepprath"
 
+from easygraphics import * # graphics engine, probably for testing, may remove later
+
 # constants
-BOARD_SIZE = 13 # 24 holes + 23 in between spots
+BOARD_SIZE = 47 # 24 holes + 23 in between spots
+GRAPHIC_SIZE_PER_SPACE = 20
 
 # important definitions
 board = list()
@@ -28,15 +31,14 @@ def print_pegs():
 
     pegs = list()
 
-    for i in range(len(board)): # we want the number value, not the actual board row, so we can do math
-
+    for i in range(0, len(board), 2): # we want even number values
+        # create a 1-D array for pegs
         peg_row = list()
-        if i % 2 == 0: # only even rows will have any pegs
-            for j in range(len(board[i])):
-                if j % 2 == 0: # only even columns will have any pegs
-                    peg_row.append(board[i][j]) # append the board value to the peg row
+
+        for j in range(0, len(board[i]), 2): # only even columns will have any pegs
+            peg_row.append(board[i][j]) # append the board value to the peg row
         
-            print(peg_row)
+        print(peg_row)
 
     print(pegs)
 
@@ -186,11 +188,120 @@ def place_bridge(player: int, direction: int, x: int, y: int):
     
     board[y][x] = bridge_value
     return True
-            
-            
-add_peg(-1, 3, 2)
-add_peg(-1, 5, 3)  
-add_peg(1, 5, 2)
-add_peg(1, 3, 3)
-print_pegs()
-print_board()
+
+
+# primary graphics loop
+def mainloop():
+
+    while False:
+        if delay_jfps(60):
+            set_color(Color.BLACK)
+            set_line_width(5)
+            draw_line(10, 10, 20, 20)
+
+    while True:
+
+        if delay_jfps(60):
+
+            # loop through all locations
+            for i in range(0, len(board)):
+                for j in range(0, len(board[i])):
+
+                    # get the value of this board location
+                    spot_value = board[i][j]
+
+                    # if the location is a peg location
+                    if i % 2 == 0 and j % 2 == 0:
+
+                        # determine color based on value
+                        set_color(Color.BLACK)
+                        if spot_value == None:
+                            set_color(Color.LIGHT_GRAY)
+                            set_fill_color(Color.LIGHT_GRAY)
+                        elif spot_value == 0:
+                            set_fill_color(Color.DARK_GRAY)
+                        elif spot_value > 0:
+                            set_fill_color(Color.RED)
+                        elif spot_value < 0:
+                            set_fill_color(Color.BLUE)
+
+                        # print peg
+                        draw_ellipse(GRAPHIC_SIZE_PER_SPACE*(j+1), GRAPHIC_SIZE_PER_SPACE*(i+1), GRAPHIC_SIZE_PER_SPACE/2, GRAPHIC_SIZE_PER_SPACE/2)
+                    
+                    # if the location is a bridge location
+                    if (i + j) % 2 == 1 and spot_value != 0:
+
+                        # determine color based on value
+                        set_color(Color.WHITE)
+                        set_fill_color(Color.WHITE)
+                        if spot_value < 0:
+                            set_color(Color.BLUE)
+                            set_fill_color(Color.BLUE)
+                        elif spot_value > 0:
+                            set_color(Color.RED)
+                            set_fill_color(Color.RED)
+
+                        # determine direction based on position and value
+                        x1 = 0
+                        y1 = 0
+                        x2 = 0
+                        y2 = 0
+
+                        # note: in each case, the entire graph is offset by GRAPHIC_SIZE_PER_SPACE
+                        if i % 2 == 0: # this will be a primarily vertical bridge
+                            if abs(spot_value) == 1: # this will have positive slope
+                                x1 = GRAPHIC_SIZE_PER_SPACE * (j+1) + GRAPHIC_SIZE_PER_SPACE
+                                x2 = GRAPHIC_SIZE_PER_SPACE * (j-1) + GRAPHIC_SIZE_PER_SPACE
+                                y1 = GRAPHIC_SIZE_PER_SPACE * (i-2) + GRAPHIC_SIZE_PER_SPACE
+                                y2 = GRAPHIC_SIZE_PER_SPACE * (i+2) + GRAPHIC_SIZE_PER_SPACE
+                            elif abs(spot_value) == 2: # this will have negative slope
+                                x1 = GRAPHIC_SIZE_PER_SPACE * (j+1) + GRAPHIC_SIZE_PER_SPACE
+                                x2 = GRAPHIC_SIZE_PER_SPACE * (j-1) + GRAPHIC_SIZE_PER_SPACE
+                                y1 = GRAPHIC_SIZE_PER_SPACE * (i+2) + GRAPHIC_SIZE_PER_SPACE
+                                y2 = GRAPHIC_SIZE_PER_SPACE * (i-2) + GRAPHIC_SIZE_PER_SPACE
+                        elif j % 2 == 0: # this will be a primarily horizontal bridge
+                            if abs(spot_value) == 1: # this will have positive slope
+                                x1 = GRAPHIC_SIZE_PER_SPACE * (j+2) + GRAPHIC_SIZE_PER_SPACE
+                                x2 = GRAPHIC_SIZE_PER_SPACE * (j-2) + GRAPHIC_SIZE_PER_SPACE
+                                y1 = GRAPHIC_SIZE_PER_SPACE * (i-1) + GRAPHIC_SIZE_PER_SPACE
+                                y2 = GRAPHIC_SIZE_PER_SPACE * (i+1) + GRAPHIC_SIZE_PER_SPACE
+                            elif abs(spot_value) == 2: # this will have negative slope
+                                x1 = GRAPHIC_SIZE_PER_SPACE * (j+2) + GRAPHIC_SIZE_PER_SPACE
+                                x2 = GRAPHIC_SIZE_PER_SPACE * (j-2) + GRAPHIC_SIZE_PER_SPACE
+                                y1 = GRAPHIC_SIZE_PER_SPACE * (i+1) + GRAPHIC_SIZE_PER_SPACE
+                                y2 = GRAPHIC_SIZE_PER_SPACE * (i-1) + GRAPHIC_SIZE_PER_SPACE
+
+                        # draw bridge
+                        set_line_width(5)
+                        draw_line(x1, y1, x2, y2)
+                        set_line_width(1)
+
+
+
+
+
+# main function
+def main():
+    add_peg(-1, 2, 3)
+    add_peg(-1, 3, 5)   
+    add_peg(1, 2, 5)
+    add_peg(1, 3, 2)
+    add_peg(-1, 7, 5)
+    add_peg(-1, 8, 7)   
+    add_peg(1, 3, 7)
+    add_peg(1, 7, 3) 
+    add_peg(-1, 5, 4) 
+    # add_peg(1, 1, 3) 
+    # print_pegs()
+    print_board()
+
+    init_graph((BOARD_SIZE+1) * GRAPHIC_SIZE_PER_SPACE, (BOARD_SIZE+1) * GRAPHIC_SIZE_PER_SPACE)
+    set_render_mode(RenderMode.RENDER_MANUAL)
+    mainloop()
+    close_graph()
+  
+  
+# Using the special variable 
+# __name__
+if __name__=="__main__":
+    main()
