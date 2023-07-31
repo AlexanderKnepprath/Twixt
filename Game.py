@@ -5,8 +5,16 @@ __author__      = "Alexander Knepprath"
 from easygraphics import * # graphics engine, probably for testing, may remove later
 
 # constants
-BOARD_SIZE = 47 # 24 holes + 23 in between spots
-GRAPHIC_SIZE_PER_SPACE = 20
+NUM_PEGS_PER_AXIS = 24
+BOARD_SIZE = 47 #(NUM_PEGS_PER_AXIS * 2) - 1
+GRAPHIC_SIZE = 18
+PLAYER_ONE_COLOR = Color.RED
+PLAYER_ONE_LIGHT_COLOR = rgb(255, 230, 230)
+PLAYER_TWO_COLOR = Color.BLUE
+PLAYER_TWO_LIGHT_COLOR = rgb(230, 230, 255)
+EMPTY_PEG_COLOR = Color.DARK_GRAY
+INVALID_PEG_COLOR = Color.LIGHT_GRAY
+GUIDE_LINES_COLOR = Color.BLACK
 
 # important definitions
 board = list()
@@ -276,14 +284,32 @@ def mainloop():
         ###      
 
         if turn == 1:
-            set_background_color(rgb(255, 210, 210))
+            set_background_color(PLAYER_ONE_LIGHT_COLOR)
             clear_device()
             print("Background Red")
 
         if turn == -1:
-            set_background_color(rgb(210, 210, 255)) 
+            set_background_color(PLAYER_TWO_LIGHT_COLOR) 
             clear_device()
             print("Background Blue") 
+
+        # build the board lines
+        # guide lines
+        set_line_width(1)
+        set_color(GUIDE_LINES_COLOR)
+        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE*(BOARD_SIZE + 1)/2, GRAPHIC_SIZE*BOARD_SIZE, GRAPHIC_SIZE*(BOARD_SIZE + 1)/2)
+        draw_line(GRAPHIC_SIZE*(BOARD_SIZE + 1)/2, GRAPHIC_SIZE, GRAPHIC_SIZE*(BOARD_SIZE + 1)/2, GRAPHIC_SIZE*BOARD_SIZE)
+        set_line_width(3)
+        # red lines
+        set_color(PLAYER_ONE_COLOR)
+        draw_line(GRAPHIC_SIZE*2, GRAPHIC_SIZE*2, GRAPHIC_SIZE*2, GRAPHIC_SIZE*(BOARD_SIZE - 1)) # top left to bottom left
+        draw_line(GRAPHIC_SIZE*(BOARD_SIZE - 1), GRAPHIC_SIZE*2, GRAPHIC_SIZE*(BOARD_SIZE - 1), GRAPHIC_SIZE*(BOARD_SIZE - 1)) # top right to bottom right
+        # blue lines
+        set_color(PLAYER_TWO_COLOR)
+        draw_line(GRAPHIC_SIZE*2, GRAPHIC_SIZE*2, GRAPHIC_SIZE*(BOARD_SIZE - 1), GRAPHIC_SIZE*2) # top left to top right
+        draw_line(GRAPHIC_SIZE*2, GRAPHIC_SIZE*(BOARD_SIZE - 1), GRAPHIC_SIZE*(BOARD_SIZE - 1), GRAPHIC_SIZE*(BOARD_SIZE - 1)) # bottom left to bottom right
+        # reset line width
+        set_line_width(1)
 
         # loop through all locations
         for i in range(0, len(board)):
@@ -298,17 +324,17 @@ def mainloop():
                     # determine color based on value
                     set_color(Color.BLACK)
                     if spot_value == None:
-                        set_color(Color.LIGHT_GRAY)
-                        set_fill_color(Color.LIGHT_GRAY)
+                        set_color(INVALID_PEG_COLOR)
+                        set_fill_color(INVALID_PEG_COLOR)
                     elif spot_value == 0:
-                        set_fill_color(Color.DARK_GRAY)
+                        set_fill_color(EMPTY_PEG_COLOR)
                     elif spot_value > 0:
-                        set_fill_color(Color.RED)
+                        set_fill_color(PLAYER_ONE_COLOR)
                     elif spot_value < 0:
-                        set_fill_color(Color.BLUE)
+                        set_fill_color(PLAYER_TWO_COLOR)
 
                     # print peg
-                    draw_ellipse(GRAPHIC_SIZE_PER_SPACE*(j+1), GRAPHIC_SIZE_PER_SPACE*(i+1), GRAPHIC_SIZE_PER_SPACE/2, GRAPHIC_SIZE_PER_SPACE/2)
+                    draw_ellipse(GRAPHIC_SIZE*(j+1), GRAPHIC_SIZE*(i+1), GRAPHIC_SIZE/2, GRAPHIC_SIZE/2)
                     
                 # if the location is a bridge location
                 if (i + j) % 2 == 1 and spot_value != 0:
@@ -329,29 +355,29 @@ def mainloop():
                     x2 = 0
                     y2 = 0
 
-                    # note: in each case, the entire graph is offset by GRAPHIC_SIZE_PER_SPACE
+                    # note: in each case, the entire graph is offset by GRAPHIC_SIZE
                     if i % 2 == 0: # this will be a primarily vertical bridge
                         if abs(spot_value) == 1: # this will have positive slope
-                            x1 = GRAPHIC_SIZE_PER_SPACE * (j+1) + GRAPHIC_SIZE_PER_SPACE
-                            x2 = GRAPHIC_SIZE_PER_SPACE * (j-1) + GRAPHIC_SIZE_PER_SPACE
-                            y1 = GRAPHIC_SIZE_PER_SPACE * (i-2) + GRAPHIC_SIZE_PER_SPACE
-                            y2 = GRAPHIC_SIZE_PER_SPACE * (i+2) + GRAPHIC_SIZE_PER_SPACE
+                            x1 = GRAPHIC_SIZE * (j+1) + GRAPHIC_SIZE
+                            x2 = GRAPHIC_SIZE * (j-1) + GRAPHIC_SIZE
+                            y1 = GRAPHIC_SIZE * (i-2) + GRAPHIC_SIZE
+                            y2 = GRAPHIC_SIZE * (i+2) + GRAPHIC_SIZE
                         elif abs(spot_value) == 2: # this will have negative slope
-                            x1 = GRAPHIC_SIZE_PER_SPACE * (j+1) + GRAPHIC_SIZE_PER_SPACE
-                            x2 = GRAPHIC_SIZE_PER_SPACE * (j-1) + GRAPHIC_SIZE_PER_SPACE
-                            y1 = GRAPHIC_SIZE_PER_SPACE * (i+2) + GRAPHIC_SIZE_PER_SPACE
-                            y2 = GRAPHIC_SIZE_PER_SPACE * (i-2) + GRAPHIC_SIZE_PER_SPACE
+                            x1 = GRAPHIC_SIZE * (j+1) + GRAPHIC_SIZE
+                            x2 = GRAPHIC_SIZE * (j-1) + GRAPHIC_SIZE
+                            y1 = GRAPHIC_SIZE * (i+2) + GRAPHIC_SIZE
+                            y2 = GRAPHIC_SIZE * (i-2) + GRAPHIC_SIZE
                     elif j % 2 == 0: # this will be a primarily horizontal bridge
                         if abs(spot_value) == 1: # this will have positive slope
-                            x1 = GRAPHIC_SIZE_PER_SPACE * (j+2) + GRAPHIC_SIZE_PER_SPACE
-                            x2 = GRAPHIC_SIZE_PER_SPACE * (j-2) + GRAPHIC_SIZE_PER_SPACE
-                            y1 = GRAPHIC_SIZE_PER_SPACE * (i-1) + GRAPHIC_SIZE_PER_SPACE
-                            y2 = GRAPHIC_SIZE_PER_SPACE * (i+1) + GRAPHIC_SIZE_PER_SPACE
+                            x1 = GRAPHIC_SIZE * (j+2) + GRAPHIC_SIZE
+                            x2 = GRAPHIC_SIZE * (j-2) + GRAPHIC_SIZE
+                            y1 = GRAPHIC_SIZE * (i-1) + GRAPHIC_SIZE
+                            y2 = GRAPHIC_SIZE * (i+1) + GRAPHIC_SIZE
                         elif abs(spot_value) == 2: # this will have negative slope
-                            x1 = GRAPHIC_SIZE_PER_SPACE * (j+2) + GRAPHIC_SIZE_PER_SPACE
-                            x2 = GRAPHIC_SIZE_PER_SPACE * (j-2) + GRAPHIC_SIZE_PER_SPACE
-                            y1 = GRAPHIC_SIZE_PER_SPACE * (i+1) + GRAPHIC_SIZE_PER_SPACE
-                            y2 = GRAPHIC_SIZE_PER_SPACE * (i-1) + GRAPHIC_SIZE_PER_SPACE
+                            x1 = GRAPHIC_SIZE * (j+2) + GRAPHIC_SIZE
+                            x2 = GRAPHIC_SIZE * (j-2) + GRAPHIC_SIZE
+                            y1 = GRAPHIC_SIZE * (i+1) + GRAPHIC_SIZE
+                            y2 = GRAPHIC_SIZE * (i-1) + GRAPHIC_SIZE
 
                     # draw bridge
                     set_line_width(5)
@@ -369,8 +395,8 @@ def mainloop():
             mouse = get_click()
 
             # get the coordinates of the mouse click
-            pegX = int((mouse.x)/(2*GRAPHIC_SIZE_PER_SPACE))
-            pegY = int((mouse.y)/(2*GRAPHIC_SIZE_PER_SPACE))
+            pegX = int((mouse.x)/(2*GRAPHIC_SIZE))
+            pegY = int((mouse.y)/(2*GRAPHIC_SIZE))
 
             # attempt to add peg and, if successful, break the while loop
             valid_peg = add_peg(turn, pegX, pegY)
@@ -388,7 +414,7 @@ def main():
     # print_pegs()
     # print_board()
 
-    init_graph((BOARD_SIZE+1) * GRAPHIC_SIZE_PER_SPACE, (BOARD_SIZE+1) * GRAPHIC_SIZE_PER_SPACE)
+    init_graph((BOARD_SIZE+1) * GRAPHIC_SIZE, (BOARD_SIZE+1) * GRAPHIC_SIZE)
     set_render_mode(RenderMode.RENDER_AUTO)
     mainloop()
     close_graph()
