@@ -108,35 +108,43 @@ def check_bridge(pos1x: int, pos1y: int, pos2x: int, pos2y: int):
     :return: true if a bridge can be built in that location, false if not.
     """
 
+    pos1 = [pos1x, pos1y]
+    pos2 = [pos2x, pos2y]
+
     # check if the position values are illegal
-    if not (pos1x % 2 == 0 and pos1y % 2 == 0 and pos2x % 2 == 0 and pos2y % 2 == 0):
+    if not (pos1[0] % 2 == 0 and pos1[1] % 2 == 0 and pos2[0] % 2 == 0 and pos2[1] % 2 == 0):
         return False
     
-    if pos1x < 0 or pos1x > BOARD_SIZE-1: 
+    if pos1[0] < 0 or pos1[0] > BOARD_SIZE-1: 
         return False
-    if pos1y < 0 or pos1y > BOARD_SIZE-1:
+    if pos1[1] < 0 or pos1[1] > BOARD_SIZE-1:
         return False
-    if pos2x < 0 or pos2x > BOARD_SIZE-1:
+    if pos2[0] < 0 or pos2[0] > BOARD_SIZE-1:
         return False
-    if pos2y < 0 or pos2y > BOARD_SIZE-1:
+    if pos2[1] < 0 or pos2[1] > BOARD_SIZE-1:
         return False
     
-    print("Checking bridge between (" + str(pos1x) + "," + str(pos1y) + ") and (" + str(pos2x) + "," + str(pos2y) + ")")
+    print("Checking bridge between (" + str(pos1[0]) + "," + str(pos1[1]) + ") and (" + str(pos2[0]) + "," + str(pos2[1]) + ")")
     
     # check if pos1 and pos2 have the same color pegs
-    pos1val = board[pos1y][pos1x]
-    pos2val = board[pos2y][pos2x]
+    pos1val = board[pos1[1]][pos1[0]]
+    pos2val = board[pos2[1]][pos2[0]]
     if pos1val != pos2val: 
         return False
     
-    # print("Found same color peg at (" + str(pos2x) + "," + str(pos2y) + ")!")
-    
     # check if pos1 is a knight's move from pos2
-    xDiff = pos2x - pos1x
-    yDiff = pos2y - pos1y 
+    xDiff = pos2[0] - pos1[0]
+    yDiff = pos2[1] - pos1[1] 
 
     if not ((abs(xDiff) == 2 and abs(yDiff) == 4) or (abs(xDiff) == 4 and abs(yDiff) == 2)): 
         return False
+
+    # determine whether new bridge will have positive (1) or negative (2) slope
+    slope = 0
+    if xDiff * yDiff < 0:
+        slope = 1
+    else:
+        slope = 2
     
     # determine relevant bridge locations and check them for possible conflicts
     xDir = int(xDiff/abs(xDiff)) # unit direction of x2 relative to x1, either 1 or -1
@@ -147,24 +155,77 @@ def check_bridge(pos1x: int, pos1y: int, pos2x: int, pos2y: int):
     xRange = list()
     yRange = list()
 
-    if abs(yDiff) == 4: # if the y direction has differential = 4
-        yRange = range(pos1y + yDir, pos1y + yDiff, yDir) # set y-range to be pos1y + 1u to pos1y + 3u
-        xRange = range(pos1x, pos1x + xDiff + xDir, xDir) # set x-range to be pos1x to pos1x + 2u
-    elif abs(xDiff) == 4: # if the x direction has differential = 4    
-        xRange = range(pos1x + xDir, pos1x + xDiff, xDir) # set x-range to be pos1y + 1u to pos1y + 3u
-        yRange = range(pos1y, pos1y + yDiff + yDir, yDir) # set y-range to be pos1x to pos1x + 2u 
+    # check for bridges at the boundaries of the points (edge case)
 
-    print(xRange)
-    print(yRange)
+    if abs(yDiff) == 4: # if the y direction has differential = 4
+        # if there is a bridge at the near point and it doesn't match the slope of the new one, return false
+        if board[pos1[1]][pos1[0] + xDir] != 0 and abs(board[pos1[1]][pos1[0] + xDir]) != slope: 
+            return False
+        # if there is a bridge at the far point and it doesn't match the slope of the new one, return false
+        if board[pos1[1] + yDiff][pos1[0] + xDir] != 0 and abs(board[pos1[1] + yDiff][pos1[0] + xDir]) != slope:  
+            return False  
+ 
+    elif abs(xDiff) == 4: # if the x direction has differential = 4
+        # if there is a bridge at the near point and it doesn't match the slope of the new one, return false
+        if board[pos1[1] + yDir][pos1[0]] != 0 and abs(board[pos1[1] + yDir][pos1[0]]) != slope: 
+            return False
+        # if there is a bridge at the far point and it doesn't match the slope of the new one, return false
+        if board[pos1[1] + yDir][pos1[0] + xDiff] != 0 and abs(board[pos1[1] + yDir][pos1[0] + xDiff]) != slope:  
+            return False  
+
+
+    # check for bridges between the points
+
+    if abs(yDiff) == 4: # if the y direction has differential = 4
+        yRange = range(pos1[1] + yDir, pos1[1] + yDiff, yDir) # set y-range to be pos1y + 1u to pos1y + 3u
+        xRange = range(pos1[0], pos1[0] + xDiff + xDir, xDir) # set x-range to be pos1x to pos1x + 2u
+    elif abs(xDiff) == 4: # if the x direction has differential = 4    
+        xRange = range(pos1[0] + xDir, pos1[0] + xDiff, xDir) # set x-range to be pos1x + 1u to pos1x + 3u
+        yRange = range(pos1[1], pos1[1] + yDiff + yDir, yDir) # set y-range to be pos1y to pos1y + 2u 
 
     for i in yRange:
         for j in xRange:
-            if (i + j) % 2 == 1: # if the sum of x and y is odd, then we have a bridge to check
-                if board[i][j] != 0: # if there is already a bridge here, we cannot make a bridge
-                    return False
+            if (i + j) % 2 == 1: # if the sum of x and y is odd, then we have a bridge location to check
+                if board[i][j] != 0: # if there is already a bridge here, we need to check direction
+
+                    print("Checking bridge at (" + str(j) + "," + str(i) + ")")
+                    
+                    # first, we need to get the x and y coordinates of the potential conflicting bridge
+                    pc1 = [0, 0] # (x,y)
+                    pc2 = [0, 0] # (x,y)
+
+                    if i % 2 == 0: # this will be a primary vertical bridge
+                        if abs(board[i][j]) == 1: # positive slope
+                            pc1 = [j+1, i-2]
+                            pc2 = [j-1, i+2]
+                        elif abs(board[i][j]) == 2: # a negative slope
+                            pc1 = [j+1, i+2]
+                            pc2 = [j-1, i-2]
+                    elif j % 2 == 0: # this will be a primary horizontal bridge
+                        if abs(board[i][j]) == 1: # positive slope
+                            pc1 = [j+2, i-1]
+                            pc2 = [j-2, i+1]
+                        elif abs(board[i][j]) == 2: # a negative slope
+                            pc1 = [j+2, i+1]
+                            pc2 = [j-2, i-1]
+
+                    print(pos1)
+                    print(pos2)
+                    print(pc1)
+                    print(pc2)
+
+                    # now, if the new bridge shares no coordinates with the conflicting bridge, we cannot place
+                    if not (pos1 == pc1 or pos1 == pc2 or pos2 == pc1 or pos2 == pc2):
+                        print("A")
+                        return False
+                    
+                    # assuming they share at least one peg, they must have the same slope
+                    if abs(board[i][j]) != slope: 
+                        print("B")
+                        return False
                 
     # Given no reason why a bridge cannot be placed, return True!
-    print("Bridge approved between (" + str(pos1x) + "," + str(pos1y) + ") and (" + str(pos2x) + "," + str(pos2y) + ") <<---")
+    print("Bridge approved between (" + str(pos1[0]) + "," + str(pos1[1]) + ") and (" + str(pos2[0]) + "," + str(pos2[1]) + ") <<---")
     return True;
                 
 def place_bridge(player: int, direction: int, x: int, y: int):
@@ -320,12 +381,10 @@ def mainloop():
         else:
             turn = 1
 
-        
-
 
 # main function
 def main():
-    add_pegs()
+    # add_pegs()
     # print_pegs()
     # print_board()
 
