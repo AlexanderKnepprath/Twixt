@@ -302,13 +302,19 @@ def mainloop():
         # Player turns
         ###
 
-        mouse = get_click()
+        valid_peg = False
+        while not valid_peg:
+            # wait for a mouse click
+            mouse = get_click()
 
-        pegX = int((mouse.x)/(2*GRAPHIC_SIZE_PER_SPACE))
-        pegY = int((mouse.y)/(2*GRAPHIC_SIZE_PER_SPACE))
+            # get the coordinates of the mouse click
+            pegX = int((mouse.x)/(2*GRAPHIC_SIZE_PER_SPACE))
+            pegY = int((mouse.y)/(2*GRAPHIC_SIZE_PER_SPACE))
 
-        add_peg(turn, pegX, pegY)
+            # attempt to add peg and, if successful, break the while loop
+            valid_peg = add_peg(turn, pegX, pegY)
 
+        # change the turn
         if turn > 0:
             turn = -1
         else:
