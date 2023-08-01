@@ -5,9 +5,9 @@ __author__      = "Alexander Knepprath"
 from easygraphics import * # graphics engine, probably for testing, may remove later
 
 # constants
-NUM_PEGS_PER_AXIS = 24
-BOARD_SIZE = 47 #(NUM_PEGS_PER_AXIS * 2) - 1
-GRAPHIC_SIZE = 18
+NUM_PEGS_PER_AXIS = 14
+BOARD_SIZE = (NUM_PEGS_PER_AXIS * 2) - 1
+GRAPHIC_SIZE = 20
 PLAYER_ONE_COLOR = Color.RED
 PLAYER_ONE_LIGHT_COLOR = rgb(255, 230, 230)
 PLAYER_TWO_COLOR = Color.BLUE
