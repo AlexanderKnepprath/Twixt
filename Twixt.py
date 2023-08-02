@@ -7,15 +7,17 @@ __author__ = "Alexander Knepprath"
 import numpy as np
 
 # constants
-BOARD_SIZE = 5
-
 class Board:
 
-    peg_matrix = np.zeros((BOARD_SIZE, BOARD_SIZE), np.int8)
-    vector_matrix = np.zeros((8, BOARD_SIZE, BOARD_SIZE), np.int8)
+    """
+        Creates a new Twixt board
 
-    def __init__(self):
-        True
+        :param board_size: The size of the board, in pegs squared, including pegs beyond the end lines
+    """
+    def __init__(self, board_size):
+        self.board_size = board_size
+        self.peg_matrix = np.zeros((self.board_size, self.board_size), np.int8)
+        self.vector_matrix = np.zeros((8, self.board_size, self.board_size), np.int8)
     
     """
         Adds a peg to the pegboard and automatically adds any possible bridges
@@ -30,7 +32,7 @@ class Board:
         # verify that the inputs are valid
         if not (player == -1 or player == 1):
             return False
-        elif position[0] < 0 or position[0] >= BOARD_SIZE or position[1] < 0 or position[1] >= BOARD_SIZE:
+        elif position[0] < 0 or position[0] >= self.board_size or position[1] < 0 or position[1] >= self.board_size:
             return False
         
         # verify that the peg location is not already occupied
@@ -65,13 +67,13 @@ class Board:
         print("1 - Attempting to place bridge from (" + str(pos1[0]) + "," + str(pos1[1]) + ") to (" + str(pos2[0]) + "," + str(pos2[1]) + ")")
 
         # check if the position values are illegal    
-        if pos1[0] < 0 or pos1[0] >= BOARD_SIZE: 
+        if pos1[0] < 0 or pos1[0] >= self.board_size: 
             return False
-        if pos1[1] < 0 or pos1[1] >= BOARD_SIZE:
+        if pos1[1] < 0 or pos1[1] >= self.board_size:
             return False
-        if pos2[0] < 0 or pos2[0] >= BOARD_SIZE:
+        if pos2[0] < 0 or pos2[0] >= self.board_size:
             return False
-        if pos2[1] < 0 or pos2[1] >= BOARD_SIZE:
+        if pos2[1] < 0 or pos2[1] >= self.board_size:
             return False
         
         print("2 - Legal position values!")
@@ -206,7 +208,3 @@ class Board:
         return abs(self.vector_matrix[direction - 1, position[0], position[1]]) == 1
 
 board = Board()
-board.addPeg(1, (1, 1))
-board.addPeg(1, (2, 3))
-print(board.peg_matrix)
-print(board.vector_matrix)
