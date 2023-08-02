@@ -1,5 +1,5 @@
 """
-    Implements the game of Twixt with bridges stored as vectors in separate image matrices
+    Implements the game of twixt with bridges stored as vectors in separate image matrices
 """
 
 __author__ = "Alexander Knepprath"
