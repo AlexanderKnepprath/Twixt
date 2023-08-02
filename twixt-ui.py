@@ -4,7 +4,7 @@
 
 __author__ = "Alexander Knepprath"
 
-import Twixt
+import twixt
 from easygraphics import *
 
 # constants
@@ -19,7 +19,7 @@ PLAYER_TWO_COLOR = Color.BLUE # peg and bridge color for p2
 PLAYER_TWO_COLOR_LIGHT = rgb(245,245,255) # background color for p2
 
 # init board
-board = Twixt.Board(24)
+board = twixt.Board(24)
 
 def mainloop():
     loop = True

@@ -4,6 +4,7 @@
 
 __author__ = "Alexander Knepprath"
 
-import Twixt
+import twixt
+import tensorflow as tf
 
-board = Twixt.Board(24)
+board = twixt.Board(24)
