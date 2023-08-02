@@ -27,7 +27,7 @@ class Board:
 
         :return: True if the peg is added, False if the peg cannot be added
     """
-    def addPeg(self, player: int, position: tuple):
+    def add_peg(self, player: int, position: tuple):
         
         # verify that the inputs are valid
         if not (player == -1 or player == 1):
@@ -52,6 +52,8 @@ class Board:
         self.place_bridge(player, position, (position[0]-2, position[1]+1)) # up 1, left 2
         self.place_bridge(player, position, (position[0]-1, position[1]+2)) # up 2, left 1
 
+        return True
+
         
 
     """
@@ -64,8 +66,6 @@ class Board:
     """    
     def place_bridge(self, player, pos1: tuple, pos2: tuple):
 
-        print("1 - Attempting to place bridge from (" + str(pos1[0]) + "," + str(pos1[1]) + ") to (" + str(pos2[0]) + "," + str(pos2[1]) + ")")
-
         # check if the position values are illegal    
         if pos1[0] < 0 or pos1[0] >= self.board_size: 
             return False
@@ -75,8 +75,6 @@ class Board:
             return False
         if pos2[1] < 0 or pos2[1] >= self.board_size:
             return False
-        
-        print("2 - Legal position values!")
         
         # verify that the positions have the same colored pegs
         if not self.peg_matrix[pos1[0], pos1[1]] == self.peg_matrix[pos2[0], pos2[1]]:
@@ -112,8 +110,6 @@ class Board:
             direction = 3
         elif slope == -2:
             direction = 4
-
-        print("3 - Direction = " + str(direction))
         
         # iterate clockwise around points on the rectangle formed by leftpoint and rightpoint, checking for bridges which interfere
         conflict_found = False
@@ -192,7 +188,6 @@ class Board:
             return False
 
         # if there is no conflict, we make a bridge in this spot by adjusting the vector images
-        print("4 - Making a bridge! Direction = " + str(direction) + " from " + str(leftpoint) + " to " + str(rightpoint))
         self.vector_matrix[direction - 1, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
         self.vector_matrix[direction + 3, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
 
@@ -206,5 +201,3 @@ class Board:
     """
     def bridge_at(self, position: tuple, direction: int):
         return abs(self.vector_matrix[direction - 1, position[0], position[1]]) == 1
-
-board = Board()
