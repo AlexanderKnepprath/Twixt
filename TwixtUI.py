@@ -18,6 +18,7 @@ board = Twixt.Board(24)
 def mainloop():
     loop = True
     turn = 1 # set the turn to the first player
+    win = 0 # nobody has yet won
     set_line_width(1)
 
     # begin graphics loop
@@ -58,6 +59,12 @@ def mainloop():
                 if peg == 1:
                     set_fill_color(PLAYER_ONE_COLOR)
                 elif peg == -1:
+                    set_fill_color(PLAYER_TWO_COLOR)
+
+                # if one player has won, override the colors
+                if win == 1:
+                    set_fill_color(PLAYER_ONE_COLOR)
+                elif win == -1:
                     set_fill_color(PLAYER_TWO_COLOR)
 
                 # draw peg
@@ -113,7 +120,11 @@ def mainloop():
             pegY = int((mouse.y)/(GRAPHIC_SIZE))
 
             # attempt to add peg and, if successful, break the while loop
-            valid_peg = board.add_peg(turn, (pegX, pegY))
+            click_output = board.add_peg(turn, (pegX, pegY))
+            valid_peg = click_output[0]
+
+            if click_output[1]:
+                win = turn
 
         # change the turn
         if turn > 0:

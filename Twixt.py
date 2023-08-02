@@ -6,7 +6,6 @@ __author__ = "Alexander Knepprath"
 
 import numpy as np
 
-# constants
 class Board:
 
     """
@@ -18,6 +17,7 @@ class Board:
         self.board_size = board_size
         self.peg_matrix = np.zeros((self.board_size, self.board_size), np.int8)
         self.vector_matrix = np.zeros((8, self.board_size, self.board_size), np.int8)
+
     
     """
         Adds a peg to the pegboard and automatically adds any possible bridges
@@ -25,19 +25,21 @@ class Board:
         :param player: An integer, either 1 for the player or -1 for the opponent
         :param location: A tuple of the form (x,y) for the coordinates of the peg
 
-        :return: True if the peg is added, False if the peg cannot be added
+        :return: A tuple boolean.
+        :return[0]: True if and only if the peg was added
+        :return[1]: True if and only if the player has won the game
     """
     def add_peg(self, player: int, position: tuple):
         
         # verify that the inputs are valid
         if not (player == -1 or player == 1):
-            return False
+            return (False, False)
         elif position[0] < 0 or position[0] >= self.board_size or position[1] < 0 or position[1] >= self.board_size:
-            return False
+            return (False, False)
         
         # verify that the peg location is not already occupied
         if self.peg_matrix[position[0], position[1]] != 0:
-            return False
+            return (False, False)
         
         # place peg
         self.peg_matrix[position[0], position[1]] = player
@@ -52,8 +54,10 @@ class Board:
         self.place_bridge(player, position, (position[0]-2, position[1]+1)) # up 1, left 2
         self.place_bridge(player, position, (position[0]-1, position[1]+2)) # up 2, left 1
 
-        return True
+        if self.has_won(player):
+            return(True, True)
 
+        return (True, False)
         
 
     """
@@ -201,3 +205,83 @@ class Board:
     """
     def bridge_at(self, position: tuple, direction: int):
         return abs(self.vector_matrix[direction - 1, position[0], position[1]]) == 1
+    
+
+    """
+        Returns true if the player has won the game
+
+        :param player: An integer, either 1 or -1, signifying the player to check for
+
+        :return: True if and only if the player has made a complete bridge from one of their ends to the other
+    """
+    def has_won(self, player: int):
+        for i in range(self.board_size):
+            if player == 1:
+                if self.peg_matrix[0, i] == 1 and self.connects_to_end(1, (0, i), list()):
+                    return True
+            elif player == 2:
+                if self.peg_matrix[i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
+                    return True
+
+
+    """
+        Recursive method: returns true if the given peg connects to the end side (right side for p1, bottom for p2)
+
+        :param player: An integer, the player to check the win condition for, either 1 for p1 or -1 for p2
+        :param position: The peg to check
+        :param checked_list: A list of all points that have been previously checked (to prevent infinite loops)
+    """
+    def connects_to_end(self, player: int, position: tuple, checked_list: list):
+        
+        # first, verify that the peg to check is actually controlled by the player
+        if not self.peg_matrix[position[0], position[1]] == player:
+            return False
+
+        # check if the peg is already beyond the end line
+        if (player == 1 and position[0] == self.board_size - 1) or (player == -1 and position[1] == self.board_size - 1):
+            return True
+        
+        # if we haven't reached the end line, but the peg is controlled by the player, add the peg to the checked_list
+        checked_list.append(position)
+
+        # now check each vector map for a bridge
+        for i in range(8):
+
+            # get the coordinates of the hypothetical new bridge endpoint
+            new_position = (0,0)
+            if i == 0:
+                new_position = (position[0]+1, position[1]+2)
+            elif i == 1:
+                new_position = (position[0]+2, position[1]+1)
+            elif i == 2:
+                new_position = (position[0]+2, position[1]-1)
+            elif i == 3:
+                new_position = (position[0]+1, position[1]-2)
+            elif i == 4:
+                new_position = (position[0]-1, position[1]-2)
+            elif i == 5:
+                new_position = (position[0]-2, position[1]-1)
+            elif i == 6:
+                new_position = (position[0]-2, position[1]+1)
+            elif i == 7:
+                new_position = (position[0]-1, position[1]+2)
+
+            # check if there's actually a bridge there
+            if self.vector_matrix[i, position[0], position[1]] == 1:
+
+                # if so, make sure that we haven't already checked the new point
+                new_position_checked = False
+                for i in checked_list:
+                    if new_position == i:
+                        new_position_checked = True
+
+                # if the new point connects to the end, then we also connect to the end
+                if (not new_position_checked) and self.connects_to_end(player, new_position, checked_list):
+                    return True
+                    
+        # nothing was found that connects to the end, so return false
+        return False
+        
+
+
+
