@@ -1,3 +1,9 @@
+"""
+    Implements a User Interface for the Twixt board game
+"""
+
+__author__ = "Alexander Knepprath"
+
 import Twixt
 from easygraphics import *
 
