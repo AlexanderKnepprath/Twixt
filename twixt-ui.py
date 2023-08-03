@@ -57,7 +57,7 @@ def mainloop():
             for j in range(board.board_size):
 
                 # get the peg value
-                peg = board.peg_matrix[i,j]
+                peg = board.board_matrix[0, i,j]
 
                 # set colors
                 set_color(PEG_OUTLINE_COLOR)
@@ -78,12 +78,12 @@ def mainloop():
                 
         # draw bridges
         set_line_width(GRAPHIC_SIZE/8) # set line width
-        for i in range(4): # only right-facing vector maps required
+        for i in range(1,5): # only right-facing vector maps required
             for j in range(board.board_size):
                 for k in range(board.board_size):
 
                     # check if there is a bridge starting here
-                    bridge = board.vector_matrix[i, j, k] 
+                    bridge = board.board_matrix[i, j, k] 
 
                     if bridge == 1 or bridge == -1:
 
