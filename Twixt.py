@@ -15,8 +15,7 @@ class Board:
     """
     def __init__(self, board_size):
         self.board_size = board_size
-        self.peg_matrix = np.zeros((self.board_size, self.board_size), np.int8)
-        self.vector_matrix = np.zeros((8, self.board_size, self.board_size), np.int8)
+        self.board_matrix = np.zeros((9, self.board_size, self.board_size), np.int8)
 
     
     """
@@ -38,11 +37,11 @@ class Board:
             return (False, False)
         
         # verify that the peg location is not already occupied
-        if self.peg_matrix[position[0], position[1]] != 0:
+        if self.board_matrix[0, position[0], position[1]] != 0:
             return (False, False)
         
         # place peg
-        self.peg_matrix[position[0], position[1]] = player
+        self.board_matrix[0, position[0], position[1]] = player
 
         # place bridges at 8 candidate locations, if possible
         self.place_bridge(player, position, (position[0]+1, position[1]+2)) # up 2, right 1
@@ -81,7 +80,7 @@ class Board:
             return False
         
         # verify that the positions have the same colored pegs
-        if not self.peg_matrix[pos1[0], pos1[1]] == self.peg_matrix[pos2[0], pos2[1]]:
+        if not self.board_matrix[0, pos1[0], pos1[1]] == self.board_matrix[0, pos2[0], pos2[1]]:
             return False
 
         # verify that the positions are a knight's move apart
@@ -192,8 +191,8 @@ class Board:
             return False
 
         # if there is no conflict, we make a bridge in this spot by adjusting the vector images
-        self.vector_matrix[direction - 1, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
-        self.vector_matrix[direction + 3, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board_matrix[direction, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board_matrix[direction + 4, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
 
     """
         Returns true if there is a bridge at the given position, directed in the given direction
@@ -204,7 +203,7 @@ class Board:
         :return: true if there is a bridge, false if there is no bridge
     """
     def bridge_at(self, position: tuple, direction: int):
-        return abs(self.vector_matrix[direction - 1, position[0], position[1]]) == 1
+        return abs(self.board_matrix[direction, position[0], position[1]]) == 1
     
 
     """
@@ -217,10 +216,10 @@ class Board:
     def has_won(self, player: int):
         for i in range(self.board_size):
             if player == 1:
-                if self.peg_matrix[0, i] == 1 and self.connects_to_end(1, (0, i), list()):
+                if self.board_matrix[0, 0, i] == 1 and self.connects_to_end(1, (0, i), list()):
                     return True
             elif player == 2:
-                if self.peg_matrix[i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
+                if self.board_matrix[0, i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
                     return True
 
 
@@ -234,7 +233,7 @@ class Board:
     def connects_to_end(self, player: int, position: tuple, checked_list: list):
         
         # first, verify that the peg to check is actually controlled by the player
-        if not self.peg_matrix[position[0], position[1]] == player:
+        if not self.board_matrix[0, position[0], position[1]] == player:
             return False
 
         # check if the peg is already beyond the end line
@@ -245,7 +244,7 @@ class Board:
         checked_list.append(position)
 
         # now check each vector map for a bridge
-        for i in range(8):
+        for i in range(1, 9):
 
             # get the coordinates of the hypothetical new bridge endpoint
             new_position = (0,0)
@@ -267,7 +266,7 @@ class Board:
                 new_position = (position[0]-1, position[1]+2)
 
             # check if there's actually a bridge there
-            if self.vector_matrix[i, position[0], position[1]] == 1:
+            if self.board_matrix[i, position[0], position[1]] == 1:
 
                 # if so, make sure that we haven't already checked the new point
                 new_position_checked = False

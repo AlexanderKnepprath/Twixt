@@ -5,6 +5,8 @@
 __author__ = "Alexander Knepprath"
 
 import twixt
-import tensorflow as tf
+import numpy as np
+# import tensorflow as tf
+# print("TensorFlow version:", tf.__version__)
 
 board = twixt.Board(24)
