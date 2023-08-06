@@ -97,13 +97,13 @@ def mainloop():
                         pos1 = (j, k)
                         pos2 = (0, 0)
 
-                        if i == 0: 
+                        if i == 1: 
                             pos2 = (j+1, k+2)
-                        elif i == 1:
-                            pos2 = (j+2, k+1)
                         elif i == 2:
-                            pos2 = (j+2, k-1)
+                            pos2 = (j+2, k+1)
                         elif i == 3:
+                            pos2 = (j+2, k-1)
+                        elif i == 4:
                             pos2 = (j+1, k-2)
 
                         # draw the bridge
@@ -141,9 +141,6 @@ def mainloop():
 
 
 def main():
-
-    board.add_peg(1, (1, 1))
-    board.add_peg(1, (2, 3))
 
     init_graph(board.board_size * GRAPHIC_SIZE, board.board_size * GRAPHIC_SIZE)
     set_render_mode(RenderMode.RENDER_AUTO)
