@@ -6,6 +6,8 @@ __author__ = "Alexander Knepprath"
 
 import numpy as np
 
+DEBUG_MODE = False
+
 class Board:
 
     """
@@ -24,9 +26,12 @@ class Board:
         :param player: An integer, either 1 for the player or -1 for the opponent
         :param location: A tuple of the form (x,y) for the coordinates of the peg
 
-        :return: A tuple boolean.
-        :return[0]: True if and only if the peg was added
-        :return[1]: True if and only if the player has won the game
+        :return: A tuple boolean with the following significance:
+            (False, False): The peg was not added because the location is illegal or occupied.
+            (True, False): The peg was added and the game should continue.
+            (True, True): The peg was added and the player who placed it has won the game.
+            (False, True): The game is a draw because the opponent has no legal moves.
+
     """
     def add_peg(self, player: int, position: tuple):
         
@@ -37,7 +42,7 @@ class Board:
             return (False, False)
         
         # verify that the peg location is not already occupied
-        if self.board_matrix[0, position[0], position[1]] != 0:
+        if not self.is_legal_move(player, position):
             return (False, False)
         
         # place peg
@@ -55,6 +60,10 @@ class Board:
 
         if self.has_won(player):
             return(True, True)
+        
+        # check to see if the next player has a legal move
+        if len(self.get_all_legal_moves(player * -1)) == 0:
+            return (False, True)
 
         return (True, False)
         
@@ -187,7 +196,7 @@ class Board:
             conflict_found = conflict_found or self.bridge_at((leftpoint[0], leftpoint[1]-1), 3)
 
         if conflict_found:
-            print("XX - Conflict found! - XX")
+            print_if_debug("XX - Conflict found! - XX")
             return False
 
         # if there is no conflict, we make a bridge in this spot by adjusting the vector images
@@ -214,11 +223,14 @@ class Board:
         :return: True if and only if the player has made a complete bridge from one of their ends to the other
     """
     def has_won(self, player: int):
+        print_if_debug("Checking for win")
         for i in range(self.board_size):
             if player == 1:
+                if self.board_matrix[0, 0, i] == 1:
+                    print_if_debug("Found player 1 peg beyond end line at (" + str(0) + ", " + str(i) + ")")
                 if self.board_matrix[0, 0, i] == 1 and self.connects_to_end(1, (0, i), list()):
                     return True
-            elif player == 2:
+            elif player == -1:
                 if self.board_matrix[0, i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
                     return True
 
@@ -231,13 +243,16 @@ class Board:
         :param checked_list: A list of all points that have been previously checked (to prevent infinite loops)
     """
     def connects_to_end(self, player: int, position: tuple, checked_list: list):
-        
+        print_if_debug("Connection made at " + str(position))
+
         # first, verify that the peg to check is actually controlled by the player
         if not self.board_matrix[0, position[0], position[1]] == player:
+            print_if_debug("Peg at " + str(position) + " is not controlled by player " + str(player))
             return False
 
         # check if the peg is already beyond the end line
         if (player == 1 and position[0] == self.board_size - 1) or (player == -1 and position[1] == self.board_size - 1):
+            print_if_debug("Peg at " + str(position) + " is beyond the opposite end line!")
             return True
         
         # if we haven't reached the end line, but the peg is controlled by the player, add the peg to the checked_list
@@ -247,40 +262,75 @@ class Board:
         for i in range(1, 9):
 
             # get the coordinates of the hypothetical new bridge endpoint
-            new_position = (0,0)
-            if i == 0:
+            new_position = (0, 0)
+            if i == 1:
                 new_position = (position[0]+1, position[1]+2)
-            elif i == 1:
-                new_position = (position[0]+2, position[1]+1)
             elif i == 2:
-                new_position = (position[0]+2, position[1]-1)
+                new_position = (position[0]+2, position[1]+1)
             elif i == 3:
-                new_position = (position[0]+1, position[1]-2)
+                new_position = (position[0]+2, position[1]-1)
             elif i == 4:
-                new_position = (position[0]-1, position[1]-2)
+                new_position = (position[0]+1, position[1]-2)
             elif i == 5:
-                new_position = (position[0]-2, position[1]-1)
+                new_position = (position[0]-1, position[1]-2)
             elif i == 6:
-                new_position = (position[0]-2, position[1]+1)
+                new_position = (position[0]-2, position[1]-1)
             elif i == 7:
+                new_position = (position[0]-2, position[1]+1)
+            elif i == 8:
                 new_position = (position[0]-1, position[1]+2)
 
             # check if there's actually a bridge there
-            if self.board_matrix[i, position[0], position[1]] == 1:
+            if self.board_matrix[i, position[0], position[1]] == player:
+                print_if_debug("Found bridge to " + str(new_position) + " from " + str(position))
 
                 # if so, make sure that we haven't already checked the new point
                 new_position_checked = False
                 for i in checked_list:
                     if new_position == i:
                         new_position_checked = True
+                        print_if_debug("Already checked " + str(new_position) + " from " + str(position))
 
                 # if the new point connects to the end, then we also connect to the end
                 if (not new_position_checked) and self.connects_to_end(player, new_position, checked_list):
+                    print_if_debug("Peg at " + str(position) + " connects to end via " + str(new_position))
                     return True
                     
         # nothing was found that connects to the end, so return false
+        print_if_debug("Dead end at " + str(position))
         return False
+    
+
+    def is_legal_move(self, player: int, position: tuple):
+
+        # if peg is beyond opponent's goal line
+        if (position[0] == 0 or position[0] == self.board_size-1) and player == -1:
+            return False
+        elif (position[1] == 0 or position[1] == self.board_size-1) and player == 1:
+            return False
         
+        # if peg is already occupied
+        elif self.board_matrix[0, position[0], position[1]] != 0:
+            return False
 
+        return True  
+    
 
+    def get_all_legal_moves(self, player:int):
+        # Initialize an empty list to store legal moves
+        legal_moves = []
 
+        # Generate all legal moves (valid placements of pegs)
+        for x in range(self.board_size):
+            for y in range(self.board_size):
+                # Check if the position (x, y) is empty and can be legally occupied by a peg
+                if self.is_legal_move(player, (x, y)):  # Implement the function is_legal_move to check if the move is legal
+                    # Add the coordinates of the legal move to the action space
+                    legal_moves.append([x, y])
+
+        return legal_moves
+    
+
+def print_if_debug(string:str):
+    if (DEBUG_MODE):
+        print(string)

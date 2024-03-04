@@ -72,12 +72,14 @@ def mainloop():
                     set_fill_color(PLAYER_ONE_COLOR)
                 elif win == -1:
                     set_fill_color(PLAYER_TWO_COLOR)
+                elif win == 10:
+                    set_fill_color(GUIDE_LINE_COLOR)
 
                 # draw peg
                 draw_ellipse(i*GRAPHIC_SIZE + GRAPHIC_SIZE/2, j*GRAPHIC_SIZE + GRAPHIC_SIZE/2, GRAPHIC_SIZE/4, GRAPHIC_SIZE/4)
                 
         # draw bridges
-        set_line_width(GRAPHIC_SIZE/8) # set line width
+        set_line_width(GRAPHIC_SIZE/8) # set line  width
         for i in range(1,5): # only right-facing vector maps required
             for j in range(board.board_size):
                 for k in range(board.board_size):
@@ -113,35 +115,37 @@ def mainloop():
 
 
         # process input
-        valid_peg = False
-        while not valid_peg:
-            # wait for a mouse click
-            mouse = get_click()
+        if win == 0:
+            valid_peg = False
+            while not valid_peg:
+                # wait for a mouse click
+                mouse = get_click()
 
-            print(mouse.x)
-            print(mouse.y)
+                # get the coordinates of the mouse click
+                pegX = int((mouse.x)/(GRAPHIC_SIZE))
+                pegY = int((mouse.y)/(GRAPHIC_SIZE))
 
-            # get the coordinates of the mouse click
-            pegX = int((mouse.x)/(GRAPHIC_SIZE))
-            pegY = int((mouse.y)/(GRAPHIC_SIZE))
+                # attempt to add peg and, if successful, break the while loop
+                click_output = board.add_peg(turn, (pegX, pegY))
+                valid_peg = click_output[0]
 
-            # attempt to add peg and, if successful, break the while loop
-            click_output = board.add_peg(turn, (pegX, pegY))
-            valid_peg = click_output[0]
+                if click_output[1]:
+                    if (valid_peg):
+                        win = turn # we have a winner!
+                    else:
+                        win = 10 # it's a draw!
+                        valid_peg = True # break the loop
 
-            if click_output[1]:
-                win = turn
-
-        # change the turn
-        if turn > 0:
-            turn = -1
-        else:
-            turn = 1
+            # change the turn
+            if turn > 0:
+                turn = -1
+            else:
+                turn = 1
     
 
 
 def main():
-
+    
     init_graph(board.board_size * GRAPHIC_SIZE, board.board_size * GRAPHIC_SIZE)
     set_render_mode(RenderMode.RENDER_AUTO)
     mainloop()
