@@ -8,7 +8,7 @@ import numpy as np
 
 DEBUG_MODE = False
 
-class Board:
+class TwixtEnvironment:
 
     """
         Creates a new Twixt board
@@ -17,8 +17,13 @@ class Board:
     """
     def __init__(self, board_size):
         self.board_size = board_size
-        self.board_matrix = np.zeros((9, self.board_size, self.board_size), np.int8)
+        self.reset()
 
+
+    def reset(self):
+        self.winner = None
+        self.current_player = 1 # starting player
+        self.board = np.zeros((9, self.board_size, self.board_size), np.int8)
     
     """
         Adds a peg to the pegboard and automatically adds any possible bridges
@@ -26,46 +31,56 @@ class Board:
         :param player: An integer, either 1 for the player or -1 for the opponent
         :param location: A tuple of the form (x,y) for the coordinates of the peg
 
-        :return: A tuple boolean with the following significance:
-            (False, False): The peg was not added because the location is illegal or occupied.
-            (True, False): The peg was added and the game should continue.
-            (True, True): The peg was added and the player who placed it has won the game.
-            (False, True): The game is a draw because the opponent has no legal moves.
-
+        :return: True if the peg is placed, false if it is not placed because location is illegal or occupied
     """
-    def add_peg(self, player: int, position: tuple):
-        
-        # verify that the inputs are valid
-        if not (player == -1 or player == 1):
-            return (False, False)
-        elif position[0] < 0 or position[0] >= self.board_size or position[1] < 0 or position[1] >= self.board_size:
-            return (False, False)
-        
-        # verify that the peg location is not already occupied
-        if not self.is_legal_move(player, position):
-            return (False, False)
-        
-        # place peg
-        self.board_matrix[0, position[0], position[1]] = player
+    def add_peg(self, position: tuple):
 
-        # place bridges at 8 candidate locations, if possible
-        self.place_bridge(player, position, (position[0]+1, position[1]+2)) # up 2, right 1
-        self.place_bridge(player, position, (position[0]+2, position[1]+1)) # up 1, right 2
-        self.place_bridge(player, position, (position[0]+2, position[1]-1)) # down 1, right 2
-        self.place_bridge(player, position, (position[0]+1, position[1]-2)) # down 2, right 1
-        self.place_bridge(player, position, (position[0]-1, position[1]-2)) # down 2, left 1
-        self.place_bridge(player, position, (position[0]-2, position[1]-1)) # down 1, left 2
-        self.place_bridge(player, position, (position[0]-2, position[1]+1)) # up 1, left 2
-        self.place_bridge(player, position, (position[0]-1, position[1]+2)) # up 2, left 1
+        # only add a peg if there is no winner
+        if self.winner == None:
 
-        if self.has_won(player):
-            return(True, True)
+            player = self.current_player
+
+            # verify that the position is valid
+            if position[0] < 0 or position[0] >= self.board_size or position[1] < 0 or position[1] >= self.board_size:
+                return False
+            
+            # verify that the peg location is not already occupied
+            if not self.is_legal_move(player, position):
+                return False
+            
+            # place peg
+            self.board[0, position[0], position[1]] = player
+
+            # place bridges at 8 candidate locations, if possible
+            self.place_bridge(player, position, (position[0]+1, position[1]+2)) # up 2, right 1
+            self.place_bridge(player, position, (position[0]+2, position[1]+1)) # up 1, right 2
+            self.place_bridge(player, position, (position[0]+2, position[1]-1)) # down 1, right 2
+            self.place_bridge(player, position, (position[0]+1, position[1]-2)) # down 2, right 1
+            self.place_bridge(player, position, (position[0]-1, position[1]-2)) # down 2, left 1
+            self.place_bridge(player, position, (position[0]-2, position[1]-1)) # down 1, left 2
+            self.place_bridge(player, position, (position[0]-2, position[1]+1)) # up 1, left 2
+            self.place_bridge(player, position, (position[0]-1, position[1]+2)) # up 2, left 1
+
+            # check to see if this player has won the game
+            if self.has_won(player):
+                self.current_player = 0
+                self.winner = player
+                return True
+            
+            # check to see if the next player has a legal move
+            if len(self.get_all_legal_moves(player * -1)) == 0:
+
+                # if not, it's a draw.
+                self.current_player = 0
+                self.winner = 0
+                return True
+            
+            # otherwise, set the current player to the next player and return true
+            self.current_player = -self.current_player
+            return True
         
-        # check to see if the next player has a legal move
-        if len(self.get_all_legal_moves(player * -1)) == 0:
-            return (False, True)
-
-        return (True, False)
+        else:
+            raise ValueError("The game has ended. Please reset the environment.")
         
 
     """
@@ -89,7 +104,7 @@ class Board:
             return False
         
         # verify that the positions have the same colored pegs
-        if not self.board_matrix[0, pos1[0], pos1[1]] == self.board_matrix[0, pos2[0], pos2[1]]:
+        if not self.board[0, pos1[0], pos1[1]] == self.board[0, pos2[0], pos2[1]]:
             return False
 
         # verify that the positions are a knight's move apart
@@ -200,8 +215,8 @@ class Board:
             return False
 
         # if there is no conflict, we make a bridge in this spot by adjusting the vector images
-        self.board_matrix[direction, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
-        self.board_matrix[direction + 4, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board[direction, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board[direction + 4, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
 
     """
         Returns true if there is a bridge at the given position, directed in the given direction
@@ -212,7 +227,7 @@ class Board:
         :return: true if there is a bridge, false if there is no bridge
     """
     def bridge_at(self, position: tuple, direction: int):
-        return abs(self.board_matrix[direction, position[0], position[1]]) == 1
+        return abs(self.board[direction, position[0], position[1]]) == 1
     
 
     """
@@ -226,12 +241,12 @@ class Board:
         print_if_debug("Checking for win")
         for i in range(self.board_size):
             if player == 1:
-                if self.board_matrix[0, 0, i] == 1:
+                if self.board[0, 0, i] == 1:
                     print_if_debug("Found player 1 peg beyond end line at (" + str(0) + ", " + str(i) + ")")
-                if self.board_matrix[0, 0, i] == 1 and self.connects_to_end(1, (0, i), list()):
+                if self.board[0, 0, i] == 1 and self.connects_to_end(1, (0, i), list()):
                     return True
             elif player == -1:
-                if self.board_matrix[0, i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
+                if self.board[0, i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
                     return True
 
 
@@ -246,7 +261,7 @@ class Board:
         print_if_debug("Connection made at " + str(position))
 
         # first, verify that the peg to check is actually controlled by the player
-        if not self.board_matrix[0, position[0], position[1]] == player:
+        if not self.board[0, position[0], position[1]] == player:
             print_if_debug("Peg at " + str(position) + " is not controlled by player " + str(player))
             return False
 
@@ -281,7 +296,7 @@ class Board:
                 new_position = (position[0]-1, position[1]+2)
 
             # check if there's actually a bridge there
-            if self.board_matrix[i, position[0], position[1]] == player:
+            if self.board[i, position[0], position[1]] == player:
                 print_if_debug("Found bridge to " + str(new_position) + " from " + str(position))
 
                 # if so, make sure that we haven't already checked the new point
@@ -310,7 +325,7 @@ class Board:
             return False
         
         # if peg is already occupied
-        elif self.board_matrix[0, position[0], position[1]] != 0:
+        elif self.board[0, position[0], position[1]] != 0:
             return False
 
         return True  

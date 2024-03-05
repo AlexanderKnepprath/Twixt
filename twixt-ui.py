@@ -19,45 +19,43 @@ PLAYER_TWO_COLOR = Color.BLUE # peg and bridge color for p2
 PLAYER_TWO_COLOR_LIGHT = rgb(245,245,255) # background color for p2
 
 # init board
-board = twixt.Board(24)
+env = twixt.TwixtEnvironment(24)
 
 def mainloop():
     loop = True
-    turn = 1 # set the turn to the first player
-    win = 0 # nobody has yet won
     set_line_width(1)
 
     # begin graphics loop
     while loop:
 
         # set background color based on player turn
-        if turn == 1:
+        if env.current_player == 1:
             set_background_color(PLAYER_ONE_COLOR_LIGHT)
             clear_device()
-        elif turn == -1:
+        elif env.current_player == -1:
             set_background_color(PLAYER_TWO_COLOR_LIGHT) 
             clear_device()      
 
         # draw board lines
         set_line_width(1)
         set_color(GUIDE_LINE_COLOR)
-        draw_line(GRAPHIC_SIZE / 2, board.board_size * GRAPHIC_SIZE / 2, board.board_size * GRAPHIC_SIZE - GRAPHIC_SIZE/2, board.board_size * GRAPHIC_SIZE / 2)
-        draw_line(board.board_size * GRAPHIC_SIZE / 2, GRAPHIC_SIZE / 2, board.board_size * GRAPHIC_SIZE / 2, board.board_size * GRAPHIC_SIZE - GRAPHIC_SIZE/2)
+        draw_line(GRAPHIC_SIZE / 2, env.board_size * GRAPHIC_SIZE / 2, env.board_size * GRAPHIC_SIZE - GRAPHIC_SIZE/2, env.board_size * GRAPHIC_SIZE / 2)
+        draw_line(env.board_size * GRAPHIC_SIZE / 2, GRAPHIC_SIZE / 2, env.board_size * GRAPHIC_SIZE / 2, env.board_size * GRAPHIC_SIZE - GRAPHIC_SIZE/2)
         set_line_width(3)
         set_color(PLAYER_ONE_COLOR)
-        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE * (board.board_size - 1))
-        draw_line(GRAPHIC_SIZE * (board.board_size - 1), GRAPHIC_SIZE, GRAPHIC_SIZE * (board.board_size - 1), GRAPHIC_SIZE * (board.board_size - 1))
+        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE * (env.board_size - 1))
+        draw_line(GRAPHIC_SIZE * (env.board_size - 1), GRAPHIC_SIZE, GRAPHIC_SIZE * (env.board_size - 1), GRAPHIC_SIZE * (env.board_size - 1))
         set_color(PLAYER_TWO_COLOR)
-        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE * (board.board_size - 1), GRAPHIC_SIZE)
-        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE * (board.board_size - 1), GRAPHIC_SIZE * (board.board_size - 1), GRAPHIC_SIZE * (board.board_size - 1))
+        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE, GRAPHIC_SIZE * (env.board_size - 1), GRAPHIC_SIZE)
+        draw_line(GRAPHIC_SIZE, GRAPHIC_SIZE * (env.board_size - 1), GRAPHIC_SIZE * (env.board_size - 1), GRAPHIC_SIZE * (env.board_size - 1))
         set_line_width(1)
 
         # draw pegs
-        for i in range(board.board_size):
-            for j in range(board.board_size):
+        for i in range(env.board_size):
+            for j in range(env.board_size):
 
                 # get the peg value
-                peg = board.board_matrix[0, i,j]
+                peg = env.board[0, i,j]
 
                 # set colors
                 set_color(PEG_OUTLINE_COLOR)
@@ -68,11 +66,11 @@ def mainloop():
                     set_fill_color(PLAYER_TWO_COLOR)
 
                 # if one player has won, override the colors
-                if win == 1:
+                if env.winner == 1:
                     set_fill_color(PLAYER_ONE_COLOR)
-                elif win == -1:
+                elif env.winner == -1:
                     set_fill_color(PLAYER_TWO_COLOR)
-                elif win == 10:
+                elif env.winner == 0:
                     set_fill_color(GUIDE_LINE_COLOR)
 
                 # draw peg
@@ -81,11 +79,11 @@ def mainloop():
         # draw bridges
         set_line_width(GRAPHIC_SIZE/8) # set line  width
         for i in range(1,5): # only right-facing vector maps required
-            for j in range(board.board_size):
-                for k in range(board.board_size):
+            for j in range(env.board_size):
+                for k in range(env.board_size):
 
                     # check if there is a bridge starting here
-                    bridge = board.board_matrix[i, j, k] 
+                    bridge = env.board[i, j, k] 
 
                     if bridge == 1 or bridge == -1:
 
@@ -115,7 +113,7 @@ def mainloop():
 
 
         # process input
-        if win == 0:
+        if env.winner == None:
             valid_peg = False
             while not valid_peg:
                 # wait for a mouse click
@@ -126,27 +124,14 @@ def mainloop():
                 pegY = int((mouse.y)/(GRAPHIC_SIZE))
 
                 # attempt to add peg and, if successful, break the while loop
-                click_output = board.add_peg(turn, (pegX, pegY))
-                valid_peg = click_output[0]
-
-                if click_output[1]:
-                    if (valid_peg):
-                        win = turn # we have a winner!
-                    else:
-                        win = 10 # it's a draw!
-                        valid_peg = True # break the loop
-
-            # change the turn
-            if turn > 0:
-                turn = -1
-            else:
-                turn = 1
+                click_output = env.add_peg((pegX, pegY))
+                valid_peg = click_output
     
 
 
 def main():
     
-    init_graph(board.board_size * GRAPHIC_SIZE, board.board_size * GRAPHIC_SIZE)
+    init_graph(env.board_size * GRAPHIC_SIZE, env.board_size * GRAPHIC_SIZE)
     set_render_mode(RenderMode.RENDER_AUTO)
     mainloop()
     # close_graph()
