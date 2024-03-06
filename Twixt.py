@@ -23,12 +23,36 @@ class TwixtEnvironment:
 
     """
         Resets the environment to the starting game state.
+
+        :return: A tuple: (board, current_player, winner)
     """
     def reset(self):
         self.winner = None
         self.current_player = 1 # starting player
         self.board = np.zeros((self.board_size, self.board_size, 9), np.int8)
 
+        return self.board, self.current_player, self.winner
+
+
+    """
+        Jumps to a board state.
+
+        :param state: A tuple: (board, current_player, winner)
+    """    
+    def jump_to_state(self, state):
+        self.board = state[0]
+        self.current_player = state[1]
+        self.winner = state[2]
+
+
+    """
+        Outputs the current game state.
+
+        :return: A tuple: (board, current_player, winner)
+    """
+    def get_current_state(self):
+        return (self.board, self.current_player, self.winner)
+    
     
     """
         Adds a peg to the pegboard and automatically adds any possible bridges
@@ -250,7 +274,7 @@ class TwixtEnvironment:
 
         :param player: An integer, either 1 or -1, signifying the player to check for
 
-        :return: True if and only if the player has made a complete bridge from one of their ends to the other
+        :return: True iff the player has made a complete bridge from one of their ends to the other
     """
     def has_won(self, player: int):
         for i in range(self.board_size):
@@ -330,6 +354,14 @@ class TwixtEnvironment:
         return False
     
 
+    """
+        Returns True iff the move is legal
+
+        :param player: An integer, the player for whom we ask if the move is legal. 1 for p1 or -1 for p2
+        :param position: The position of the peg to check
+
+        :return: True iff the move is legal
+    """
     def is_legal_move(self, player: int, position: tuple):
 
         # if peg is beyond opponent's goal line
@@ -345,6 +377,13 @@ class TwixtEnvironment:
         return True  
     
 
+    """
+        Returns a list of all the legal moves in a position
+
+        :param player: The player for whom we ask for all legal moves
+
+        :return: A list of all the legal moves for :player:
+    """
     def get_all_legal_moves(self, player:int):
         # Initialize an empty list to store legal moves
         legal_moves = []
@@ -358,6 +397,22 @@ class TwixtEnvironment:
                     legal_moves.append([x, y])
 
         return legal_moves
+    
+
+    """
+        Do exactly the opposite of get_all_legal_moves.
+    """
+    def get_all_illegal_moves(self, player:int):
+        # Initialize an empty list to store legal moves
+        illegal_moves = []
+
+        # Generate all illegal moves
+        for x in range(self.board_size):
+            for y in range(self.board_size):
+                if not self.is_legal_move(player, (x, y)):  
+                    illegal_moves.append([x, y])
+
+        return illegal_moves
     
 
     """
