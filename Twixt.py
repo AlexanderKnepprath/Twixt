@@ -21,10 +21,14 @@ class TwixtEnvironment:
         self.reset()
 
 
+    """
+        Resets the environment to the starting game state.
+    """
     def reset(self):
         self.winner = None
         self.current_player = 1 # starting player
-        self.board = np.zeros((9, self.board_size, self.board_size), np.int8)
+        self.board = np.zeros((self.board_size, self.board_size, 9), np.int8)
+
     
     """
         Adds a peg to the pegboard and automatically adds any possible bridges
@@ -50,7 +54,7 @@ class TwixtEnvironment:
                 return False
             
             # place peg
-            self.board[0, position[0], position[1]] = player
+            self.board[position[0], position[1], 0] = player
 
             # place bridges at 8 candidate locations, if possible
             self.place_bridge(player, position, (position[0]+1, position[1]+2)) # up 2, right 1
@@ -105,7 +109,7 @@ class TwixtEnvironment:
             return False
         
         # verify that the positions have the same colored pegs
-        if not self.board[0, pos1[0], pos1[1]] == self.board[0, pos2[0], pos2[1]]:
+        if not self.board[pos1[0], pos1[1], 0] == self.board[pos2[0], pos2[1], 0]:
             return False
 
         # verify that the positions are a knight's move apart
@@ -216,8 +220,8 @@ class TwixtEnvironment:
             return False
 
         # if there is no conflict, we make a bridge in this spot by adjusting the vector images
-        self.board[direction, leftpoint[0], leftpoint[1]] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
-        self.board[direction + 4, rightpoint[0], rightpoint[1]] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board[leftpoint[0], leftpoint[1], direction] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
+        self.board[rightpoint[0], rightpoint[1], direction + 4] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
 
     """
         Returns true if there is a bridge at the given position, directed in the given direction
@@ -228,7 +232,7 @@ class TwixtEnvironment:
         :return: true if there is a bridge, false if there is no bridge
     """
     def bridge_at(self, position: tuple, direction: int):
-        return abs(self.board[direction, position[0], position[1]]) == 1
+        return abs(self.board[position[0], position[1], direction]) == 1
     
 
     """
@@ -242,12 +246,12 @@ class TwixtEnvironment:
         print_if_debug("Checking for win")
         for i in range(self.board_size):
             if player == 1:
-                if self.board[0, 0, i] == 1:
+                if self.board[0, i, 0] == 1:
                     print_if_debug("Found player 1 peg beyond end line at (" + str(0) + ", " + str(i) + ")")
-                if self.board[0, 0, i] == 1 and self.connects_to_end(1, (0, i), list()):
+                if self.board[0, i, 0] == 1 and self.connects_to_end(1, (0, i), list()):
                     return True
             elif player == -1:
-                if self.board[0, i, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
+                if self.board[i, 0, 0] == -1 and self.connects_to_end(-1, (i, 0), list()):
                     return True
 
 
@@ -262,7 +266,7 @@ class TwixtEnvironment:
         print_if_debug("Connection made at " + str(position))
 
         # first, verify that the peg to check is actually controlled by the player
-        if not self.board[0, position[0], position[1]] == player:
+        if not self.board[position[0], position[1], 0] == player:
             print_if_debug("Peg at " + str(position) + " is not controlled by player " + str(player))
             return False
 
@@ -297,7 +301,7 @@ class TwixtEnvironment:
                 new_position = (position[0]-1, position[1]+2)
 
             # check if there's actually a bridge there
-            if self.board[i, position[0], position[1]] == player:
+            if self.board[position[0], position[1], i] == player:
                 print_if_debug("Found bridge to " + str(new_position) + " from " + str(position))
 
                 # if so, make sure that we haven't already checked the new point
@@ -326,7 +330,7 @@ class TwixtEnvironment:
             return False
         
         # if peg is already occupied
-        elif self.board[0, position[0], position[1]] != 0:
+        elif self.board[position[0], position[1], 0] != 0:
             return False
 
         return True  
@@ -345,6 +349,22 @@ class TwixtEnvironment:
                     legal_moves.append([x, y])
 
         return legal_moves
+    
+
+    """
+        Rotates the board and switches the active player. 
+        This is done for NN training purposes, so that the active player can always be player 1.
+    """
+    def rotate_board(self):
+        # create new temp board
+        new_board = self.board = np.zeros((self.board_size, self.board_size, 9), np.int8)
+
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                for k in range(0, 8):
+                    new_board[i, j, k] == self.board[j, i, k] * -1
+
+        self.board = new_board
     
 
 def print_if_debug(string:str):
