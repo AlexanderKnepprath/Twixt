@@ -6,7 +6,7 @@ __author__ = "Alexander Knepprath"
 
 import numpy as np
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 DEFAULT_BOARD_SIZE = 24
 
 class TwixtEnvironment:
@@ -235,6 +235,16 @@ class TwixtEnvironment:
         return abs(self.board[position[0], position[1], direction]) == 1
     
 
+    def print_bridges(self):
+        for i in range(self.board_size):
+            for j in range(self.board_size):
+                if self.board[i, j, 0] != 0:
+                    for k in range (1,9):
+                        if self.board[i,j,k] != 0:
+                            print("(" + str(i) + ", " + str(j) + ") -> " + str(k))
+        print("---")
+    
+
     """
         Returns true if the player has won the game
 
@@ -243,7 +253,6 @@ class TwixtEnvironment:
         :return: True if and only if the player has made a complete bridge from one of their ends to the other
     """
     def has_won(self, player: int):
-        print_if_debug("Checking for win")
         for i in range(self.board_size):
             if player == 1:
                 if self.board[0, i, 0] == 1:
@@ -356,15 +365,24 @@ class TwixtEnvironment:
         This is done for NN training purposes, so that the active player can always be player 1.
     """
     def rotate_board(self):
+
         # create new temp board
-        new_board = self.board = np.zeros((self.board_size, self.board_size, 9), np.int8)
+        new_board = np.zeros((self.board_size, self.board_size, 9), np.int8)
 
         for i in range(self.board_size):
             for j in range(self.board_size):
-                for k in range(0, 8):
-                    new_board[i, j, k] == self.board[j, i, k] * -1
+
+                new_board[i, j, 0] = -self.board[j, i, 0]
+
+                for k in range (1, 9):
+                    # 10-k % 8 + 1 will properly adjust bridges.
+                    new_board[i, j, k] = -self.board[j, i, (10-k) % 8 + 1]
 
         self.board = new_board
+
+        self.current_player *= -1
+
+        print_if_debug("---")
     
 
 def print_if_debug(string:str):

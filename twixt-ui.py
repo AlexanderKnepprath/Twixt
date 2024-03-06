@@ -55,7 +55,7 @@ def mainloop():
             for j in range(env.board_size):
 
                 # get the peg value
-                peg = env.board[0, i,j]
+                peg = env.board[i, j, 0]
 
                 # set colors
                 set_color(PEG_OUTLINE_COLOR)
@@ -78,9 +78,9 @@ def mainloop():
                 
         # draw bridges
         set_line_width(GRAPHIC_SIZE/8) # set line  width
-        for i in range(1,5): # only right-facing vector maps required
+        for i in range(env.board_size): 
             for j in range(env.board_size):
-                for k in range(env.board_size):
+                for k in range(1,5): # only right-facing vector maps required
 
                     # check if there is a bridge starting here
                     bridge = env.board[i, j, k] 
@@ -94,17 +94,17 @@ def mainloop():
                             set_color(PLAYER_TWO_COLOR)
 
                         # determine bridge endpoints
-                        pos1 = (j, k)
+                        pos1 = (i, j)
                         pos2 = (0, 0)
 
-                        if i == 1: 
-                            pos2 = (j+1, k+2)
-                        elif i == 2:
-                            pos2 = (j+2, k+1)
-                        elif i == 3:
-                            pos2 = (j+2, k-1)
-                        elif i == 4:
-                            pos2 = (j+1, k-2)
+                        if k == 1: 
+                            pos2 = (i+1, j+2)
+                        elif k == 2:
+                            pos2 = (i+2, j+1)
+                        elif k == 3:
+                            pos2 = (i+2, j-1)
+                        elif k == 4:
+                            pos2 = (i+1, j-2)
 
                         # draw the bridge
                         draw_line(pos1[0] * GRAPHIC_SIZE + GRAPHIC_SIZE / 2, pos1[1] * GRAPHIC_SIZE + GRAPHIC_SIZE / 2, pos2[0] * GRAPHIC_SIZE + GRAPHIC_SIZE / 2, pos2[1] * GRAPHIC_SIZE  + GRAPHIC_SIZE / 2)
@@ -126,8 +126,9 @@ def mainloop():
                 # attempt to add peg and, if successful, break the while loop
                 click_output = env.add_peg((pegX, pegY))
                 valid_peg = click_output
+            
+            env.rotate_board()
     
-
 
 def main():
     
