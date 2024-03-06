@@ -7,6 +7,7 @@ __author__ = "Alexander Knepprath"
 import numpy as np
 
 DEBUG_MODE = False
+DEFAULT_BOARD_SIZE = 24
 
 class TwixtEnvironment:
 
@@ -15,7 +16,7 @@ class TwixtEnvironment:
 
         :param board_size: The size of the board, in pegs squared, including pegs beyond the end lines
     """
-    def __init__(self, board_size):
+    def __init__(self, board_size=DEFAULT_BOARD_SIZE):
         self.board_size = board_size
         self.reset()
 
