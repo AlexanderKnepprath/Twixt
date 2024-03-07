@@ -4,6 +4,7 @@ import tensorflow as tf
 from keras import layers, models
 
 import numpy as np
+import random
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -81,10 +82,10 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             replay_buffer.append((state, action, reward, next_state, done))
 
             # Sample mini-batch from replay buffer
-            mini_batch = sample_mini_batch(replay_buffer)
+            mini_batch, batch_next_states = sample_mini_batch(replay_buffer)
 
             # Compute target Q-values using Bellman equation
-            next_state_q_values = model.predict(mini_batch[:, 3])
+            next_state_q_values = model.predict(batch_next_states)
             target_q_values = compute_target_q_values(mini_batch, next_state_q_values)
 
             # Compute loss and update model
@@ -168,11 +169,11 @@ def epsilon_greedy_policy(q_values, epsilon):
     return action
 
 
-def sample_mini_batch(replay_buffer, batch_size=32):
+def sample_mini_batch(replay_buffer, batch_size=16):
     # Randomly sample a mini-batch of experiences from the replay buffer
-    mini_batch = np.random.choice(replay_buffer, size=batch_size, replace=False)
+    mini_batch = replay_buffer.sample(batch_size)
     
-    # Convert the mini-batch to numpy array
+    # Extract the third element from each sub-element (assuming each sub-element is a list or tuple)
     mini_batch = np.array(mini_batch)
     
     return mini_batch
@@ -224,31 +225,10 @@ def opponent_response(state):
     if not env.add_peg(legal_moves[choice_index]):
         raise Exception("Opponent played illegal move!")
 
-
-class ReplayBuffer:
-    def __init__(self, max_size):
-        self.max_size = max_size
-        self.buffer = []
-
-    def append(self, experience):
-        """
-        Append a new experience tuple to the replay buffer.
-        """
-        self.buffer.append(experience)
-        if len(self.buffer) > self.max_size:
-            self.buffer.pop(0)  # Remove oldest experience if buffer exceeds maximum size
-
-    def sample(self, batch_size):
-        """
-        Sample a mini-batch of experiences from the replay buffer.
-        """
-        return np.random.sample(self.buffer, min(len(self.buffer), batch_size))
-
-
+  
 ## -- Hyperparams -- ##
 num_episodes = 1000
 epsilon_decay = 0.98
 max_size = 100
-replay_buffer = ReplayBuffer(max_size)
 
 train_model(model, num_episodes, epsilon_decay, replay_buffer)
