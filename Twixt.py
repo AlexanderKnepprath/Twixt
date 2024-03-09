@@ -64,6 +64,8 @@ class TwixtEnvironment:
     """
     def add_peg(self, position: tuple):
 
+        print_if_debug(f"Attempt to add peg at {position}")
+
         # only add a peg if there is no winner
         if self.winner == None:
 
@@ -265,7 +267,7 @@ class TwixtEnvironment:
                 if self.board[i, j, 0] != 0:
                     for k in range (1,9):
                         if self.board[i,j,k] != 0:
-                            print("(" + str(i) + ", " + str(j) + ") -> " + str(k))
+                            print(f"({i}, {j}) -> {k}")
         print("---")
     
 
@@ -296,16 +298,16 @@ class TwixtEnvironment:
         :param checked_list: A list of all points that have been previously checked (to prevent infinite loops)
     """
     def connects_to_end(self, player: int, position: tuple, checked_list: list):
-        print_if_debug("Connection made at " + str(position))
+        print_if_debug(f"Connection made at {position}")
 
         # first, verify that the peg to check is actually controlled by the player
         if not self.board[position[0], position[1], 0] == player:
-            print_if_debug("Peg at " + str(position) + " is not controlled by player " + str(player))
+            print_if_debug(f"Peg at {position} is not controlled by player {player}")
             return False
 
         # check if the peg is already beyond the end line
         if (player == 1 and position[0] == self.board_size - 1) or (player == -1 and position[1] == self.board_size - 1):
-            print_if_debug("Peg at " + str(position) + " is beyond the opposite end line!")
+            print_if_debug(f"Peg at {position} is beyond the opposite end line!")
             return True
         
         # if we haven't reached the end line, but the peg is controlled by the player, add the peg to the checked_list
@@ -335,22 +337,22 @@ class TwixtEnvironment:
 
             # check if there's actually a bridge there
             if self.board[position[0], position[1], i] == player:
-                print_if_debug("Found bridge to " + str(new_position) + " from " + str(position))
+                print_if_debug(f"Found bridge to {new_position} from {position}")
 
                 # if so, make sure that we haven't already checked the new point
                 new_position_checked = False
                 for i in checked_list:
                     if new_position == i:
                         new_position_checked = True
-                        print_if_debug("Already checked " + str(new_position) + " from " + str(position))
+                        print_if_debug(f"Already checked {new_position} from {position}")
 
                 # if the new point connects to the end, then we also connect to the end
                 if (not new_position_checked) and self.connects_to_end(player, new_position, checked_list):
-                    print_if_debug("Peg at " + str(position) + " connects to end via " + str(new_position))
+                    print_if_debug(f"Peg at {position} connects to end via {position}")
                     return True
                     
         # nothing was found that connects to the end, so return false
-        print_if_debug("Dead end at " + str(position))
+        print_if_debug(f"Dead end at {position}")
         return False
     
 

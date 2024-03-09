@@ -6,6 +6,8 @@ from keras import layers, models
 import numpy as np
 import random
 
+DEBUG_MODE = True
+
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
 ENGINE_PLAYER = 1
@@ -65,8 +67,11 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
     for episode in range(num_episodes):
         state = env.reset()
         done = False
+        loop = 0
 
         while not done:
+            print_if_debug(f"\nEpisode {episode}, Loop {loop}")
+
             # Compute Q-values for all possible moves
             q_values = model.predict(np.expand_dims(env.board, axis=0))[0]
 
@@ -85,15 +90,17 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             mini_batch, batch_next_states = sample_mini_batch(replay_buffer)
 
             # Compute target Q-values using Bellman equation
-            next_state_q_values = model.predict(np.expand_dims(batch_next_states, axis=0))
+            next_state_q_values = model.predict(batch_next_states)
             target_q_values = compute_target_q_values(mini_batch, next_state_q_values)
 
             # Compute loss and update model
-            loss = model.train_on_batch(mini_batch[:, 0], target_q_values)
+            loss = train_batch(mini_batch, target_q_values)
 
-            print(loss)
+            print(f"Loss: {loss}")
 
             state = next_state
+
+            loop += 1
 
         # Decay epsilon after each episode
         epsilon *= epsilon_decay
@@ -128,15 +135,16 @@ def step(action, state):
     # attempt to add a peg at that position
     peg_added = env.add_peg(position)
 
-    # get opponent's move
-    opponent_response(env.get_current_state())
-
-    # get next game state
-    next_state = env.get_current_state()
-
     # theoretically this should be impossible, but if the engine tries an illegal move, we punish.
     if not peg_added:
         reward = -100
+
+    # if a move was played, now we get a move from the opponent
+    if peg_added:
+        opponent_response(env.get_current_state())
+
+    # get next game state
+    next_state = env.get_current_state()
     
     # if we win, then big reward
     if env.winner == ENGINE_PLAYER:
@@ -173,36 +181,27 @@ def sample_mini_batch(replay_buffer, batch_size=16):
     # Randomly sample a mini-batch of experiences from the replay buffer
     mini_batch = replay_buffer.sample_batch(batch_size)
 
-    next_states = [len(mini_batch)]
-    for i in range(len(mini_batch)):
-        next_states[i] = mini_batch[i][3]
-    
-    boards = [len(next_states)]
-    for i in range(len(next_states)):
-        boards[i], _, _ = next_states[i]
-    
-    # Extract the third element from each sub-element (assuming each sub-element is a list or tuple)
-    boards_np = np.array(boards)
+    boards = extract_boards_from_nth_element(mini_batch, 3)
 
-    return mini_batch, boards_np
+    return mini_batch, boards
 
 
 def compute_target_q_values(mini_batch, next_state_q_values, gamma=0.99):
     # Extract components from the mini-batch
-    states = mini_batch[:, 0]
-    actions = mini_batch[:, 1]
-    rewards = mini_batch[:, 2]
-    next_states = mini_batch[:, 3]
-    dones = mini_batch[:, 4]
+    rewards = list()
+    dones = list()
+
+    for i in mini_batch:
+        rewards.append(i[2])
 
     # Compute target Q-values based on the Bellman equation
-    target_q_values = rewards + gamma * np.max(next_state_q_values, axis=1) * (1 - dones)
+    target_q_values = rewards + gamma * np.max((next_state_q_values), axis=1)
 
     # Update Q-values for actions that led to terminal states
     for i, done in enumerate(dones):
         if done:
             target_q_values[i] = rewards[i]
-
+    
     return target_q_values
 
 
@@ -220,6 +219,37 @@ def apply_action_mask(q_values, illegal_moves):
         q_values[index] = -1000000 # I guess negative one million will do for now
 
     return q_values
+
+
+def train_batch(mini_batch, target_q_values):
+
+    boards = extract_boards_from_nth_element(mini_batch, 0)
+    
+    loss = model.train_on_batch(boards, target_q_values)
+
+    return loss
+
+
+"""
+    Takes a list of tuples where the nth element in each tuple is a list of states,
+    retrieves the boards from those states,
+    and returns them as a numpy array
+
+    :param tuple: The tuple to take from
+    :param n: the position of the list of states to extract boards from
+"""
+def extract_boards_from_nth_element(list_of_tuples, n):
+    states = list()
+    for i in list_of_tuples:
+        states.append(i[n])
+    
+    boards = list()
+    for i in states:
+        boards.append(i[0])
+
+    boards = np.array(boards)
+
+    return boards
 
 
 """
@@ -251,6 +281,11 @@ class ReplayBuffer:
     def sample_batch(self, batch_size):
         return random.sample(self.buffer, min(batch_size, self.position))
 
+## -- Print if Debug -- ##
+
+def print_if_debug(string:str):
+    if (DEBUG_MODE):
+        print(string)
 
 ## -- Hyperparams -- ##
 num_episodes = 1000
