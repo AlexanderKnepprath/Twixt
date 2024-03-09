@@ -6,7 +6,7 @@ from keras import layers, models
 import numpy as np
 import random
 
-DEBUG_MODE = True
+DEBUG_MODE = 4
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -70,33 +70,44 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
         loop = 0
 
         while not done:
-            print_if_debug(f"\nEpisode {episode}, Loop {loop}")
+            print_if_debug(f"\nEpisode {episode}, Loop {loop}", 1)
 
             # Compute Q-values for all possible moves
+            print_if_debug("Computing q-values", 3)
             q_values = model.predict(np.expand_dims(env.board, axis=0))[0]
 
             # Apply mask to Q-values to set illegal moves to a very low number
+            print_if_debug("Getting illegal actions", 3)
             illegal_actions = env.get_all_illegal_moves(ENGINE_PLAYER)
+            print_if_debug("Setting illegal actions' q-values to very low", 3)
             masked_q_values = apply_action_mask(q_values, illegal_actions)
 
             # Choose action using epsilon-greedy policy
+            print_if_debug("Choosing action", 3)
             action = epsilon_greedy_policy(masked_q_values, epsilon)
 
             # take this action
+            print_if_debug("Taking a step", 3)
             next_state, reward, done = step(action, state)
+            print_if_debug("Adding experience to replay buffer", 3)
             replay_buffer.add_experience(state, action, reward, next_state, done)
 
             # Sample mini-batch from replay buffer
+            print_if_debug("Sampling mini-batch from replay buffer", 3)
             mini_batch, batch_next_states = sample_mini_batch(replay_buffer)
 
             # Compute target Q-values using Bellman equation
+            print_if_debug("Getting next state q-values:", 3)
             next_state_q_values = model.predict(batch_next_states)
+            print_if_debug("Computing target q-values with bellman equation", 3)
             target_q_values = compute_target_q_values(mini_batch, next_state_q_values)
 
             # Compute loss and update model
+            print_if_debug("Training batch with target q-values", 3)
+            print_if_debug(target_q_values, 4)
             loss = train_batch(mini_batch, target_q_values)
 
-            print(f"Loss: {loss}")
+            print_if_debug(f"Loss: {loss}", 1)
 
             state = next_state
 
@@ -283,8 +294,8 @@ class ReplayBuffer:
 
 ## -- Print if Debug -- ##
 
-def print_if_debug(string:str):
-    if (DEBUG_MODE):
+def print_if_debug(string:str, level=4):
+    if (DEBUG_MODE >= level):
         print(string)
 
 ## -- Hyperparams -- ##

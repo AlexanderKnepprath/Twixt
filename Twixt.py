@@ -64,7 +64,7 @@ class TwixtEnvironment:
     """
     def add_peg(self, position: tuple):
 
-        print_if_debug(f"Attempt to add peg at {position}")
+        print_if_debug(f"Attempt to add peg at for player {self.current_player} at {position}")
 
         # only add a peg if there is no winner
         if self.winner == None:
