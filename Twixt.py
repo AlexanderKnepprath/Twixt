@@ -280,7 +280,7 @@ class TwixtEnvironment:
         for i in range(self.board_size):
             if player == 1:
                 if self.board[0, i, 0] == 1:
-                    print_if_debug("Found player 1 peg beyond end line at (" + str(0) + ", " + str(i) + ")")
+                    print_if_debug(f'Found player 1 peg beyond end line at 0, {i})')
                 if self.board[0, i, 0] == 1 and self.connects_to_end(1, (0, i), list()):
                     return True
             elif player == -1:

@@ -18,14 +18,14 @@ env = twixt.TwixtEnvironment(24)
 
 def build_model(input_shape, num_actions):
     model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.MaxPooling2D((2, 2)),
-        layers.Conv2D(64, (3, 3), activation='relu'),
-        layers.Flatten(),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(num_actions, activation='linear')  # Output layer for Q-values
+        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape, name = "Scott"),
+        layers.MaxPooling2D((2, 2), name = "Terry"),
+        layers.Conv2D(64, (3, 3), activation='relu', name = "Daniel"),
+        layers.MaxPooling2D((2, 2), name = "Tuomas"),
+        layers.Conv2D(64, (3, 3), activation='relu', name = "Giovanni"),
+        layers.Flatten(name = "Stanley"),
+        layers.Dense(64, activation='relu', name = "Rein"),
+        layers.Dense(num_actions, activation='linear', name = "Evgeny")  # Output layer for Q-values
     ])
     return model
 
@@ -79,13 +79,13 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
 
             # take this action
             next_state, reward, done = step(action, state)
-            replay_buffer.append((state, action, reward, next_state, done))
+            replay_buffer.add_experience(state, action, reward, next_state, done)
 
             # Sample mini-batch from replay buffer
             mini_batch, batch_next_states = sample_mini_batch(replay_buffer)
 
             # Compute target Q-values using Bellman equation
-            next_state_q_values = model.predict(batch_next_states)
+            next_state_q_values = model.predict(np.expand_dims(batch_next_states, axis=0))
             target_q_values = compute_target_q_values(mini_batch, next_state_q_values)
 
             # Compute loss and update model
@@ -129,10 +129,10 @@ def step(action, state):
     peg_added = env.add_peg(position)
 
     # get opponent's move
-    opponent_response(env.get_current_state)
+    opponent_response(env.get_current_state())
 
     # get next game state
-    next_state = env.get_current_state
+    next_state = env.get_current_state()
 
     # theoretically this should be impossible, but if the engine tries an illegal move, we punish.
     if not peg_added:
@@ -171,12 +171,20 @@ def epsilon_greedy_policy(q_values, epsilon):
 
 def sample_mini_batch(replay_buffer, batch_size=16):
     # Randomly sample a mini-batch of experiences from the replay buffer
-    mini_batch = replay_buffer.sample(batch_size)
+    mini_batch = replay_buffer.sample_batch(batch_size)
+
+    next_states = [len(mini_batch)]
+    for i in range(len(mini_batch)):
+        next_states[i] = mini_batch[i][3]
+    
+    boards = [len(next_states)]
+    for i in range(len(next_states)):
+        boards[i], _, _ = next_states[i]
     
     # Extract the third element from each sub-element (assuming each sub-element is a list or tuple)
-    mini_batch = np.array(mini_batch)
-    
-    return mini_batch
+    boards_np = np.array(boards)
+
+    return mini_batch, boards_np
 
 
 def compute_target_q_values(mini_batch, next_state_q_values, gamma=0.99):
@@ -226,9 +234,28 @@ def opponent_response(state):
         raise Exception("Opponent played illegal move!")
 
   
+## -- Replay Buffer -- ##
+
+class ReplayBuffer:
+    def __init__(self, capacity:int):
+        self.capacity = capacity
+        self.buffer = []
+        self.position = 0
+
+    def add_experience(self, state, action, reward, next_state, done):
+        if len(self.buffer) < self.capacity:
+            self.buffer.append(None)
+        self.buffer[self.position] = (state, action, reward, next_state, done)
+        self.position = (self.position + 1) % self.capacity
+
+    def sample_batch(self, batch_size):
+        return random.sample(self.buffer, min(batch_size, self.position))
+
+
 ## -- Hyperparams -- ##
 num_episodes = 1000
 epsilon_decay = 0.98
 max_size = 100
+replay_buffer = ReplayBuffer(256)
 
 train_model(model, num_episodes, epsilon_decay, replay_buffer)

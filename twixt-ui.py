@@ -126,8 +126,6 @@ def mainloop():
                 # attempt to add peg and, if successful, break the while loop
                 click_output = env.add_peg((pegX, pegY))
                 valid_peg = click_output
-            
-            env.rotate_board()
     
 
 def main():
