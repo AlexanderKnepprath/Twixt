@@ -6,7 +6,8 @@ from keras import layers, models
 import numpy as np
 import random
 
-DEBUG_MODE = 4
+DEBUG_LEVEL = 1
+# VISUAL_MODE = False
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -198,15 +199,15 @@ def sample_mini_batch(replay_buffer, batch_size=16):
 
 
 def compute_target_q_values(mini_batch, next_state_q_values, gamma=0.99):
-    # Extract components from the mini-batch
-    rewards = list()
-    dones = list()
+    # Extract components from the mini-batch as np array
+    rewards = np.array([i[2] for i in mini_batch])
+    dones = np.array([i[4] for i in mini_batch])
 
-    for i in mini_batch:
-        rewards.append(i[2])
+    # Repeat rewards for each action
+    rewards_broadcasted = np.repeat(rewards[:, np.newaxis], next_state_q_values.shape[1], axis=1)
 
     # Compute target Q-values based on the Bellman equation
-    target_q_values = rewards + gamma * np.max((next_state_q_values), axis=1)
+    target_q_values = rewards_broadcasted + gamma * np.max(next_state_q_values, axis=0)
 
     # Update Q-values for actions that led to terminal states
     for i, done in enumerate(dones):
@@ -295,7 +296,7 @@ class ReplayBuffer:
 ## -- Print if Debug -- ##
 
 def print_if_debug(string:str, level=4):
-    if (DEBUG_MODE >= level):
+    if (DEBUG_LEVEL >= level):
         print(string)
 
 ## -- Hyperparams -- ##
