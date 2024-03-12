@@ -6,7 +6,7 @@ __author__ = "Alexander Knepprath"
 
 import numpy as np
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 DEFAULT_BOARD_SIZE = 24
 
 class TwixtEnvironment:

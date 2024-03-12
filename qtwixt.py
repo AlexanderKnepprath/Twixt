@@ -8,7 +8,7 @@ import numpy as np
 import random
 
 DEBUG_LEVEL = 1
-# VISUAL_MODE = False
+VISUAL_MODE = True
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -19,6 +19,10 @@ BOARD_SIZE = 24
 
 # create twixt environment
 env = twixt.TwixtEnvironment(24)
+
+# set up visuals
+if (VISUAL_MODE):
+    twixtui.initialize_graphics(env)
 
 def build_model(input_shape, num_actions):
     model = models.Sequential([
@@ -112,6 +116,10 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             print_if_debug(f"Loss: {loss}", 1)
 
             state = next_state
+
+            # display board
+            if (VISUAL_MODE):
+                twixtui.renderEnvironment(env)
 
             loop += 1
 
