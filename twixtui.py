@@ -21,14 +21,9 @@ PLAYER_TWO_COLOR_LIGHT = rgb(245,245,255) # background color for p2
 # init board
 env = twixt.TwixtEnvironment(24)
 
-def mainloop():
-    loop = True
-    set_line_width(1)
 
-    # begin graphics loop
-    while loop:
-
-        # set background color based on player turn
+def renderEnvironment():
+    # set background color based on player turn
         if env.current_player == 1:
             set_background_color(PLAYER_ONE_COLOR_LIGHT)
             clear_device()
@@ -111,6 +106,15 @@ def mainloop():
 
         set_line_width(1) # reset line width to default                      
 
+
+def mainloop():
+    loop = True
+    set_line_width(1)
+
+    # begin graphics loop
+    while loop:
+
+        renderEnvironment()
 
         # process input
         if env.winner == None:
