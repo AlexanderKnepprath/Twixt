@@ -5,6 +5,7 @@
 __author__ = "Alexander Knepprath"
 
 import twixt
+import numpy as np
 from easygraphics import *
 
 # constants
@@ -18,19 +19,30 @@ PLAYER_ONE_COLOR_LIGHT = rgb(255,245,245) # background color for p1
 PLAYER_TWO_COLOR = Color.BLUE # peg and bridge color for p2
 PLAYER_TWO_COLOR_LIGHT = rgb(245,245,255) # background color for p2
 
+# Heatmap Colors
+HEAT_COLOR = [rgb(255,255,245), 
+              rgb(255,249,120), 
+              rgb(255,243,59), 
+              rgb(253,199,12),
+              rgb(243,144,63),
+              rgb(237,104,60),
+              rgb(233,62,58),
+              rgb(150,40,125)]
+
 # init board
 environment = twixt.TwixtEnvironment(24)
 
-def renderEnvironment(env):
+def renderEnvironment(env, heatmap):
     # set background color based on player turn
     set_line_width(1)    
     
-    if env.current_player == 1:
-        set_background_color(PLAYER_ONE_COLOR_LIGHT)
-        clear_device()
-    elif env.current_player == -1:
-        set_background_color(PLAYER_TWO_COLOR_LIGHT) 
-        clear_device()      
+    if not heatmap:
+        if env.current_player == 1:
+            set_background_color(PLAYER_ONE_COLOR_LIGHT)
+            clear_device()
+        elif env.current_player == -1:
+            set_background_color(PLAYER_TWO_COLOR_LIGHT) 
+            clear_device()      
 
     # draw board lines
     set_line_width(1)
@@ -108,6 +120,51 @@ def renderEnvironment(env):
     set_line_width(1) # reset line width to default                      
 
 
+def draw_heatmap(matrix):
+    
+    set_line_width(0)
+    clear_device()
+
+    minimum_q_val = np.min(matrix)
+    total_q_val = 0
+
+    for i in matrix:
+        for j in i:
+            total_q_val += j - minimum_q_val
+
+    for i in range(len(matrix)):
+        for j in range(len(matrix)):
+
+            heat_color = Color.WHITE
+            q_val_pct = (matrix[i][j] - minimum_q_val) / total_q_val
+
+            if q_val_pct < 1/572:
+                heat_color = HEAT_COLOR[0]
+            elif q_val_pct < 2/572:
+                heat_color = HEAT_COLOR[1]
+            elif q_val_pct < 4/572:
+                heat_color = HEAT_COLOR[2]
+            elif q_val_pct < 8/572:
+                heat_color = HEAT_COLOR[3]
+            elif q_val_pct < 16/572:
+                heat_color = HEAT_COLOR[4]
+            elif q_val_pct < 32/572:
+                heat_color = HEAT_COLOR[5]
+            elif q_val_pct < 64/572:
+                heat_color = HEAT_COLOR[6]
+            else:
+                heat_color = HEAT_COLOR[7]
+
+            set_color(heat_color)
+            set_fill_color(heat_color)
+
+            min_i = i * GRAPHIC_SIZE
+            min_j = j * GRAPHIC_SIZE
+
+            draw_rect(min_i, min_j, min_i + GRAPHIC_SIZE, min_j + GRAPHIC_SIZE)
+
+    set_line_width(1)
+
 def mainloop():
     loop = True
     set_line_width(1)
@@ -115,7 +172,7 @@ def mainloop():
     # begin graphics loop
     while loop:
 
-        renderEnvironment(environment)
+        renderEnvironment(environment, False)
 
         # process input
         if environment.winner == None:

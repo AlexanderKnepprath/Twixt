@@ -124,7 +124,11 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
 
             # display board
             if (VISUAL_MODE):
-                twixtui.renderEnvironment(env)
+                if episode > 5 and loop % 5 == 0:
+                    twixtui.draw_heatmap(convert_q_indexes_to_positions(q_values))
+                    twixtui.renderEnvironment(env, True)
+                else:
+                    twixtui.renderEnvironment(env, False)
 
             # check for winners to update score
             if env.winner == 1:
@@ -314,6 +318,24 @@ def extract_boards_from_nth_element(list_of_tuples, n):
     boards = np.array(boards)
 
     return boards
+
+
+"""
+    Converts target q values into np 2d array
+"""
+def convert_q_indexes_to_positions(q_values_1d):
+    matrix = np.zeros((env.board_size, env.board_size))
+
+    for i in range(len(matrix)):
+        sub_matrix = np.zeros(env.board_size)
+
+        for j in range(len(matrix)):
+            sub_matrix[j] = q_values_1d[index_of_position((i,j))]
+
+        matrix[i] = sub_matrix
+
+    return matrix
+
 
 
 """
