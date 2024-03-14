@@ -251,6 +251,7 @@ class TwixtEnvironment:
         self.board[leftpoint[0], leftpoint[1], direction] = player # update the leftpoint on the proper direction map (-1 b/c np arrays start at index 0)
         self.board[rightpoint[0], rightpoint[1], direction + 4] = player # update the rightpoint on the proper direction map (-1 b/c np arrays start at index 0)
 
+
     """
         Returns true if there is a bridge at the given position, directed in the given direction
 

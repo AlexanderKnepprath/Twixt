@@ -70,6 +70,9 @@ model.summary()
 # Define your training loop
 def train_model(model, num_episodes, epsilon_decay, replay_buffer):
     epsilon = 1.0
+    red_wins = 0
+    blue_wins = 0
+    draws = 0
 
     for episode in range(num_episodes):
         state = env.reset()
@@ -77,7 +80,8 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
         loop = 0
 
         while not done:
-            print_if_debug(f"\nGame {episode+1}, Move {loop}", 1)
+            print_if_debug(f"\nGame {episode+1}, Move {loop} (Red: {red_wins}, Blue: {blue_wins}, Draw: {draws})", 1)
+            print_if_debug(f"Epsilon = {epsilon}")
 
             # Compute Q-values for all possible moves
             print_if_debug("Computing q-values", 3)
@@ -107,7 +111,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             print_if_debug("Getting next state q-values:", 3)
             next_state_q_values = model.predict(batch_next_states)
             print_if_debug("Computing target q-values with bellman equation", 3)
-            target_q_values = compute_target_q_values(next_state_q_values)
+            target_q_values = compute_target_q_values(next_state_q_values, 0.1)
 
             # Compute loss and update model
             print_if_debug("Training batch with target q-values", 3)
@@ -122,6 +126,17 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             if (VISUAL_MODE):
                 twixtui.renderEnvironment(env)
 
+            # check for winners to update score
+            if env.winner == 1:
+                red_wins += 1
+            elif env.winner == -1:
+                blue_wins += 1
+            elif env.winner == 0:
+                draws += 1
+
+                print(target_q_values)
+
+            # increment loop counter
             loop += 1
 
         # Decay epsilon after each episode
@@ -188,7 +203,12 @@ def get_reward(environment, position):
         done = True
 
     else:
-        reward = 20 * twixtdata.bridges_built(environment, ENGINE_PLAYER, position)
+        reward += 20 * twixtdata.bridges_built(environment, ENGINE_PLAYER, position)
+        
+        reward += 20 * twixtdata.greatest_horizontal_distance_between_connected_pegs(environment, ENGINE_PLAYER, position)
+        
+        cardinal_pegs = twixtdata.num_cardinal_pegs(env, ENGINE_PLAYER, position)
+        reward -= 10 * cardinal_pegs * cardinal_pegs
 
         #TODO: possibly compute other reward factors here
 
