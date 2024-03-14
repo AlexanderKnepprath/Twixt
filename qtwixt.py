@@ -1,5 +1,6 @@
 import twixt
 import twixtui
+import twixtdata
 
 import tensorflow as tf
 from keras import layers, models
@@ -7,7 +8,7 @@ from keras import layers, models
 import numpy as np
 import random
 
-DEBUG_LEVEL = 1
+DEBUG_LEVEL = 2
 VISUAL_MODE = True
 
 # Critical note: For now, the engine always plays as player 1. 
@@ -18,7 +19,7 @@ ENGINE_PLAYER = 1
 BOARD_SIZE = 24
 
 # create twixt environment
-env = twixt.TwixtEnvironment(24)
+env = twixt.TwixtEnvironment(BOARD_SIZE)
 
 # set up visuals
 if (VISUAL_MODE):
@@ -26,11 +27,11 @@ if (VISUAL_MODE):
 
 def build_model(input_shape, num_actions):
     model = models.Sequential([
-        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape, name = "Scott"),
+        layers.Conv2D(32, (3, 3), activation='relu', input_shape=input_shape, padding='same', name = "Scott"),
         layers.MaxPooling2D((2, 2), name = "Terry"),
-        layers.Conv2D(64, (3, 3), activation='relu', name = "Daniel"),
+        layers.Conv2D(64, (3, 3), activation='relu', padding='same', name = "Daniel"),
         layers.MaxPooling2D((2, 2), name = "Tuomas"),
-        layers.Conv2D(64, (3, 3), activation='relu', name = "Giovanni"),
+        layers.Conv2D(64, (3, 3), activation='relu', padding='same', name = "Giovanni"),
         layers.Flatten(name = "Stanley"),
         layers.Dense(64, activation='relu', name = "Rein"),
         layers.Dense(num_actions, activation='linear', name = "Evgeny")  # Output layer for Q-values
@@ -76,7 +77,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
         loop = 0
 
         while not done:
-            print_if_debug(f"\nEpisode {episode}, Loop {loop}", 1)
+            print_if_debug(f"\nGame {episode+1}, Move {loop}", 1)
 
             # Compute Q-values for all possible moves
             print_if_debug("Computing q-values", 3)
@@ -106,7 +107,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             print_if_debug("Getting next state q-values:", 3)
             next_state_q_values = model.predict(batch_next_states)
             print_if_debug("Computing target q-values with bellman equation", 3)
-            target_q_values = compute_target_q_values(mini_batch, next_state_q_values)
+            target_q_values = compute_target_q_values(next_state_q_values)
 
             # Compute loss and update model
             print_if_debug("Training batch with target q-values", 3)
@@ -146,51 +147,59 @@ def step(action, state):
     if (env.current_player != ENGINE_PLAYER):
         raise Exception("The engine is trying to make a move, but it is not the engine's turn")
 
-    # define returns
-    next_state = None
-    reward = 0
-    done = False
-
     # get position from action index
     position = position_of_index(action)
     # attempt to add a peg at that position
     peg_added = env.add_peg(position)
+    print_if_debug(f"Engine move at {position}", 2)
 
-    # theoretically this should be impossible, but if the engine tries an illegal move, we punish.
-    if not peg_added:
-        reward = -100
+    reward, done = get_reward(env, position)
 
-    # if a move was played, now we get a move from the opponent
-    if peg_added:
+    # if the game is not over, get a move from the opponent
+    if not done:
         opponent_response(env.get_current_state())
+
+    # check to see if game ended on opponent's turn
+    done = env.winner != None
 
     # get next game state
     next_state = env.get_current_state()
-    
-    # if we win, then big reward
-    if env.winner == ENGINE_PLAYER:
-        reward = 1000
-        done = True
-
-    # if we lose, then big penalty
-    elif env.winner == -ENGINE_PLAYER:
-        reward = -1000
-        done = True
-
-    # if we draw, small penalty
-    elif env.winner == 0:
-        reward = -100
-        done = True
-
-    #TODO: possibly compute other reward factors here
 
     return next_state, reward, done
 
 
+def get_reward(environment, position):
+    reward = 0
+    done = False
+
+    # if we win, then big reward
+    if environment.winner == ENGINE_PLAYER:
+        reward = 1000
+        done = True
+
+    # if we lose, then big penalty
+    elif environment.winner == -ENGINE_PLAYER:
+        reward = -1000
+        done = True
+
+    # if we draw, small penalty
+    elif environment.winner == 0:
+        reward = 0
+        done = True
+
+    else:
+        reward = 20 * twixtdata.bridges_built(environment, ENGINE_PLAYER, position)
+
+        #TODO: possibly compute other reward factors here
+
+    return reward, done
+
+
 def epsilon_greedy_policy(q_values, epsilon):
     if np.random.rand() < epsilon:
-        # Choose a random action
-        action = np.random.randint(len(q_values))
+        # Choose a random legal action
+        legal_actions = env.get_all_legal_moves(ENGINE_PLAYER)
+        action = index_of_position(random.choice(legal_actions))
     else:
         # Choose the action with the highest Q-value
         action = np.argmax(q_values)
@@ -207,23 +216,37 @@ def sample_mini_batch(replay_buffer, batch_size=16):
     return mini_batch, boards
 
 
-def compute_target_q_values(mini_batch, next_state_q_values, gamma=0.99):
-    # Extract components from the mini-batch as np array
-    rewards = np.array([i[2] for i in mini_batch])
-    dones = np.array([i[4] for i in mini_batch])
-
-    # Repeat rewards for each action
-    rewards_broadcasted = np.repeat(rewards[:, np.newaxis], next_state_q_values.shape[1], axis=1)
+def compute_target_q_values(next_state_q_values, gamma=0.99):
 
     # Compute target Q-values based on the Bellman equation
-    target_q_values = rewards_broadcasted + gamma * np.max(next_state_q_values, axis=0)
+    target_q_values = np.zeros(len(next_state_q_values[0]))
 
-    # Update Q-values for actions that led to terminal states
-    for i, done in enumerate(dones):
+    for i in range(len(target_q_values)):
+        immediate_reward, done = compute_immediate_reward(position_of_index(i))
+
         if done:
-            target_q_values[i] = rewards[i]
+            target_q_values[i] = immediate_reward
+        else:
+            target_q_values[i] = immediate_reward + gamma * next_state_q_values[0][i]
     
     return target_q_values
+
+
+"""
+    Computes the immediate reward of a move
+"""
+def compute_immediate_reward(position):
+    state = env.get_current_state()
+
+    dummy_env = twixt.TwixtEnvironment(env.board_size)
+    dummy_env.jump_to_state(state)
+    try:
+        dummy_env.add_peg(position)
+        reward, done = get_reward(dummy_env, position)
+    except ValueError:
+        reward, done = dummy_env.winner * 1000, True
+
+    return reward, done
 
 
 """
@@ -279,9 +302,12 @@ def extract_boards_from_nth_element(list_of_tuples, n):
     For now, the opponent is purely random!
 """
 def opponent_response(state):
+
     legal_moves = env.get_all_legal_moves(-ENGINE_PLAYER)
-    choice_index = np.random.randint(0, len(legal_moves))
-    if not env.add_peg(legal_moves[choice_index]):
+    choice_move = legal_moves[np.random.randint(0, len(legal_moves))]
+    print_if_debug(f"Opponent move at {choice_move}", 2)
+
+    if not env.add_peg(choice_move):
         raise Exception("Opponent played illegal move!")
 
   
@@ -291,16 +317,16 @@ class ReplayBuffer:
     def __init__(self, capacity:int):
         self.capacity = capacity
         self.buffer = []
-        self.position = 0
 
     def add_experience(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
-            self.buffer.append(None)
-        self.buffer[self.position] = (state, action, reward, next_state, done)
-        self.position = (self.position + 1) % self.capacity
+            self.buffer.append((state, action, reward, next_state, done))
+        else:
+            index = np.random.randint(0, self.capacity)
+            self.buffer[index] = (state, action, reward, next_state, done)
 
     def sample_batch(self, batch_size):
-        return random.sample(self.buffer, min(batch_size, self.position))
+        return random.sample(self.buffer, min(batch_size, len(self.buffer)))
 
 ## -- Print if Debug -- ##
 
@@ -312,6 +338,6 @@ def print_if_debug(string:str, level=4):
 num_episodes = 1000
 epsilon_decay = 0.98
 max_size = 100
-replay_buffer = ReplayBuffer(256)
+replay_buffer = ReplayBuffer(1024)
 
 train_model(model, num_episodes, epsilon_decay, replay_buffer)

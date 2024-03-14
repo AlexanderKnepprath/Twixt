@@ -5,6 +5,7 @@
 __author__ = "Alexander Knepprath"
 
 import numpy as np
+import copy
 
 DEBUG_MODE = False
 DEFAULT_BOARD_SIZE = 24
@@ -19,6 +20,7 @@ class TwixtEnvironment:
     def __init__(self, board_size=DEFAULT_BOARD_SIZE):
         self.board_size = board_size
         self.reset()
+
 
 
     """
@@ -51,7 +53,7 @@ class TwixtEnvironment:
         :return: A tuple: (board, current_player, winner)
     """
     def get_current_state(self):
-        return (self.board, self.current_player, self.winner)
+        return (copy.deepcopy(self.board), copy.deepcopy(self.current_player), copy.deepcopy(self.winner))
     
     
     """
@@ -111,7 +113,7 @@ class TwixtEnvironment:
             return True
         
         else:
-            raise ValueError("The game has ended. Please reset the environment.")
+            raise ValueError(f"The game has ended with {self.winner} as winner. Please reset the environment.")
         
 
     """
