@@ -125,43 +125,51 @@ def draw_heatmap(matrix):
     set_line_width(0)
     clear_device()
 
-    minimum_q_val = np.min(matrix)
-    total_q_val = 0
-
-    for i in matrix:
-        for j in i:
-            total_q_val += j - minimum_q_val
+    matrix_with_positions = []
 
     for i in range(len(matrix)):
+        mwp_col = []
         for j in range(len(matrix)):
+            mwp_col.append(((i,j), matrix[i][j]))
+        matrix_with_positions.append(mwp_col)
 
-            heat_color = Color.WHITE
-            q_val_pct = (matrix[i][j] - minimum_q_val) / total_q_val
+    matrix_with_positions = np.array(matrix_with_positions, dtype=[('position', tuple), ('q_val', float)])
+    matrix_with_positions = np.sort(matrix_with_positions, axis=None, order='q_val')
+    total = len(matrix_with_positions)
 
-            if q_val_pct < 1/572:
-                heat_color = HEAT_COLOR[0]
-            elif q_val_pct < 2/572:
-                heat_color = HEAT_COLOR[1]
-            elif q_val_pct < 4/572:
-                heat_color = HEAT_COLOR[2]
-            elif q_val_pct < 8/572:
-                heat_color = HEAT_COLOR[3]
-            elif q_val_pct < 16/572:
-                heat_color = HEAT_COLOR[4]
-            elif q_val_pct < 32/572:
-                heat_color = HEAT_COLOR[5]
-            elif q_val_pct < 64/572:
-                heat_color = HEAT_COLOR[6]
-            else:
-                heat_color = HEAT_COLOR[7]
+    for i in range(total):
+            
+        position, _ = matrix_with_positions[i]
+        x, y = position
 
-            set_color(heat_color)
-            set_fill_color(heat_color)
+        percentile = i/total
 
-            min_i = i * GRAPHIC_SIZE
-            min_j = j * GRAPHIC_SIZE
+        heat_color = Color.WHITE
 
-            draw_rect(min_i, min_j, min_i + GRAPHIC_SIZE, min_j + GRAPHIC_SIZE)
+        if percentile < 3/4:
+            heat_color = HEAT_COLOR[0]
+        elif percentile < 7/8:
+            heat_color = HEAT_COLOR[1]
+        elif percentile < 16/17:
+            heat_color = HEAT_COLOR[2]
+        elif percentile < 34/35:
+            heat_color = HEAT_COLOR[3]
+        elif percentile < 69/70:
+            heat_color = HEAT_COLOR[4]
+        elif percentile < 142/143:
+            heat_color = HEAT_COLOR[5]
+        elif percentile < 571/572:
+            heat_color = HEAT_COLOR[6]
+        else:
+            heat_color = HEAT_COLOR[7]
+
+        set_color(heat_color)
+        set_fill_color(heat_color)
+
+        min_x = x * GRAPHIC_SIZE
+        min_y = y * GRAPHIC_SIZE
+
+        draw_rect(min_x, min_y, min_x + GRAPHIC_SIZE, min_y + GRAPHIC_SIZE)
 
     set_line_width(1)
 

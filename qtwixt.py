@@ -124,11 +124,11 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
 
             # display board
             if (VISUAL_MODE):
-                if episode > 5 and loop % 5 == 0:
+                #if loop % 5 == 0:
                     twixtui.draw_heatmap(convert_q_indexes_to_positions(q_values))
                     twixtui.renderEnvironment(env, True)
-                else:
-                    twixtui.renderEnvironment(env, False)
+                #else:
+                    #twixtui.renderEnvironment(env, False)
 
             # check for winners to update score
             if env.winner == 1:
