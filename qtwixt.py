@@ -8,8 +8,8 @@ from keras import layers, models
 import numpy as np
 import random
 
-DEBUG_LEVEL = 2
-VISUAL_MODE = True
+DEBUG_LEVEL = 1
+VISUAL_MODE = False
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -145,6 +145,8 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
 
         # Decay epsilon after each episode
         epsilon *= epsilon_decay
+
+    model.save('./qwixt_alpha_1.model')
 
 # Helper functions
 """
@@ -377,7 +379,7 @@ def print_if_debug(string:str, level=4):
         print(string)
 
 ## -- Hyperparams -- ##
-num_episodes = 1000
+num_episodes = 50
 epsilon_decay = 0.98
 max_size = 100
 replay_buffer = ReplayBuffer(1024)
