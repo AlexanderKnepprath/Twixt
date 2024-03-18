@@ -146,7 +146,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
         # Decay epsilon after each episode
         epsilon *= epsilon_decay
 
-    model.save('./qwixt_alpha_1.model')
+    model.save('./qwixt_alpha_1.keras')
 
 # Helper functions
 """
