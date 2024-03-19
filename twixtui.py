@@ -120,7 +120,7 @@ def renderEnvironment(env, heatmap):
     set_line_width(1) # reset line width to default                      
 
 
-def draw_heatmap(matrix):
+def draw_heatmap(matrix, min_q_val=-1000000):
     
     set_line_width(0)
     clear_device()
@@ -139,14 +139,16 @@ def draw_heatmap(matrix):
 
     for i in range(total):
             
-        position, _ = matrix_with_positions[i]
+        position, q_val = matrix_with_positions[i]
         x, y = position
 
         percentile = i/total
 
         heat_color = Color.WHITE
 
-        if percentile < 3/4:
+        if q_val == min_q_val:
+            heat_color = HEAT_COLOR[0]
+        elif percentile < 3/4:
             heat_color = HEAT_COLOR[0]
         elif percentile < 7/8:
             heat_color = HEAT_COLOR[1]

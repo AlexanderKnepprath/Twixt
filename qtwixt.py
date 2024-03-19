@@ -9,7 +9,7 @@ import numpy as np
 import random
 
 DEBUG_LEVEL = 1
-VISUAL_MODE = False
+VISUAL_MODE = True
 
 # Critical note: For now, the engine always plays as player 1. 
 # It may be necessary to use the rotate board function.
@@ -17,6 +17,7 @@ ENGINE_PLAYER = 1
 
 # constants
 BOARD_SIZE = 24
+MIN_Q_VAL = -1000000 
 
 # create twixt environment
 env = twixt.TwixtEnvironment(BOARD_SIZE)
@@ -125,7 +126,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             # display board
             if (VISUAL_MODE):
                 #if loop % 5 == 0:
-                    twixtui.draw_heatmap(convert_q_indexes_to_positions(q_values))
+                    twixtui.draw_heatmap(convert_q_indexes_to_positions(q_values), MIN_Q_VAL)
                     twixtui.renderEnvironment(env, True)
                 #else:
                     #twixtui.renderEnvironment(env, False)
@@ -286,7 +287,7 @@ def compute_immediate_reward(position):
 def apply_action_mask(q_values, illegal_moves):
     for position in illegal_moves: # iterate through every illegal peg
         index = index_of_position(position) # get the q-value index
-        q_values[index] = -1000000 # I guess negative one million will do for now
+        q_values[index] = MIN_Q_VAL # I guess negative one million will do for now
 
     return q_values
 
