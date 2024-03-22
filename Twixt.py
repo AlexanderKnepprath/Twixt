@@ -387,7 +387,7 @@ class TwixtEnvironment:
 
         :param player: The player for whom we ask for all legal moves
 
-        :return: A list of all the legal moves for :player:
+        :return: A list of tuples containing all the legal moves for :player:
     """
     def get_all_legal_moves(self, player:int):
         # Initialize an empty list to store legal moves
@@ -399,7 +399,7 @@ class TwixtEnvironment:
                 # Check if the position (x, y) is empty and can be legally occupied by a peg
                 if self.is_legal_move(player, (x, y)):  # Implement the function is_legal_move to check if the move is legal
                     # Add the coordinates of the legal move to the action space
-                    legal_moves.append([x, y])
+                    legal_moves.append((x, y))
 
         return legal_moves
     
@@ -441,6 +441,7 @@ class TwixtEnvironment:
         self.board = new_board
 
         self.current_player *= -1
+        self.winner *= -1
 
         print_if_debug("---")
     

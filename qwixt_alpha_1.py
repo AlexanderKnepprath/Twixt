@@ -3,7 +3,7 @@ import twixtui
 import twixtdata
 
 import tensorflow as tf
-from keras import layers, models
+from keras import layers, models, saving
 
 import numpy as np
 import random
@@ -17,7 +17,9 @@ ENGINE_PLAYER = 1
 
 # constants
 BOARD_SIZE = 24
-MIN_Q_VAL = -1000000 
+MIN_Q_VAL = -1000000
+OPPONENT_ENGINE = saving.load_model('./qwixt_alpha_1.keras')
+OPPONENT_ENGINE.summary()
 
 # create twixt environment
 env = twixt.TwixtEnvironment(BOARD_SIZE)
@@ -112,7 +114,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
             print_if_debug("Getting next state q-values:", 3)
             next_state_q_values = model.predict(batch_next_states)
             print_if_debug("Computing target q-values with bellman equation", 3)
-            target_q_values = compute_target_q_values(next_state_q_values, 0.1)
+            target_q_values = compute_target_q_values(next_state_q_values, 0.99)
 
             # Compute loss and update model
             print_if_debug("Training batch with target q-values", 3)
@@ -147,7 +149,7 @@ def train_model(model, num_episodes, epsilon_decay, replay_buffer):
         # Decay epsilon after each episode
         epsilon *= epsilon_decay
 
-    model.save('./qwixt_alpha_1.keras')
+    model.save('./qwixt_alpha_2.keras')
 
 # Helper functions
 """
@@ -340,20 +342,35 @@ def convert_q_indexes_to_positions(q_values_1d):
     return matrix
 
 
-
 """
     The opponent makes a move!
 
-    For now, the opponent is purely random!
+    The opponent is now qwixt_alpha_1
 """
 def opponent_response(state):
 
-    legal_moves = env.get_all_legal_moves(-ENGINE_PLAYER)
-    choice_move = legal_moves[np.random.randint(0, len(legal_moves))]
-    print_if_debug(f"Opponent move at {choice_move}", 2)
+    # rotate board to make opponent engine player 1
+    env.rotate_board()
 
-    if not env.add_peg(choice_move):
-        raise Exception("Opponent played illegal move!")
+    # get q values from engine
+    q_values = OPPONENT_ENGINE.predict(np.expand_dims(env.board, axis=0))[0] 
+
+    # apply mask
+    action_mask_q_values = apply_action_mask(q_values, env.get_all_illegal_moves(ENGINE_PLAYER))
+
+    # get position of best move according to opponent
+    action = np.argmax(action_mask_q_values)
+    x, y = position_of_index(action)
+
+    # rotate position coordinates to reflect that opponent is blue
+    flipped_position = (y, x)
+
+    # set board back to original state
+    env.rotate_board()
+
+    # play move
+    if not env.add_peg(flipped_position):
+        raise ValueError("Opponent played illegal move")
 
   
 ## -- Replay Buffer -- ##
