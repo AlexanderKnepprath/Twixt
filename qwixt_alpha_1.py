@@ -382,10 +382,10 @@ class ReplayBuffer:
 
     def add_experience(self, state, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
-            self.buffer.append((state, action, reward, next_state, done))
+            self.buffer.append([state, action, reward, next_state, done])
         else:
             index = np.random.randint(0, self.capacity)
-            self.buffer[index] = (state, action, reward, next_state, done)
+            self.buffer[index] = [state, action, reward, next_state, done]
 
     def sample_batch(self, batch_size):
         return random.sample(self.buffer, min(batch_size, len(self.buffer)))

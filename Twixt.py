@@ -441,7 +441,7 @@ class TwixtEnvironment:
         self.board = new_board
 
         self.current_player *= -1
-        self.winner *= -1
+        if self.winner != None: self.winner *= -1
 
         print_if_debug("---")
     

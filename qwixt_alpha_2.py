@@ -12,13 +12,16 @@ import random
 DEBUG_LEVEL = 1
 VISUAL_MODE = True
 
-# Constants
+# File Constants
 BOARD_SIZE = 24
 BUFFER_CAPACITY = 100
 DEFAULT_NUM_EPISODES = 100
 DEFAULT_EPSILON_DECAY = 0.98
+DEFAULT_GAMMA = 1
 
+# QwixtAlpha2 Constants
 ENGINE_PLAYER = 1 # <- DO NOT ALTER
+BATCH_SAMPLE_SIZE = 32
 
 class QwixtAlpha2:
 
@@ -28,6 +31,9 @@ class QwixtAlpha2:
         self.model = self.build_model((board_size, board_size, 9), board_size*board_size)
         self.opponent_engine = opponent_engine
         self.min_q_val = minimum_q_val
+
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+              loss='mean_squared_error')
 
 
     """
@@ -49,7 +55,7 @@ class QwixtAlpha2:
     """
         Trains the NN model
     """
-    def train_model(self, num_episodes, epsilon_decay):
+    def train_model(self, num_episodes, epsilon_decay=0.98, gamma=1):
         # shorthand
         env = self.environment
         model = self.model
@@ -89,18 +95,43 @@ class QwixtAlpha2:
                 next_state, reward, done = self.step(action, state)
 
                 # Store experience in replay memory
-                self.replay_buffer.add_experience(state, action, reward, next_state, done)
+                self.replay_buffer.add_experience(state, q_values, action, reward, next_state, done)
 
                 # Sample random batch from replay memory
+                random_batch = self.replay_buffer.sample_batch(BATCH_SAMPLE_SIZE)
 
                 # Preprocess states from batch
+                q_vals = extract_nth_elements(random_batch, 1) # q-value predicted for each state-action pair
+                rewards = extract_nth_elements(random_batch, 3) # reward recieved for each state-action pair
+                next_boards = extract_boards_from_nth_elements(random_batch, 4) # board of next state after action taken
+                dones = extract_nth_elements(random_batch, 5) # whether the state was terminal after action
 
-                # Pass batch of states to policy network
+                losses_sqrd = list()
 
-                # Calculate loss between output q-values and target q-values
+                for i in range(len(random_batch)):
 
-                # Gradient descent updates weights
+                    # Pass batch of states to policy network
+                    next_state_q_values = model.predict(np.expand_dims(next_boards[i], axis=0))[0]
 
+                    # Compute target q value for action
+                    q_target = rewards[i]
+                    if not dones[i]:
+                        q_target += gamma * np.max(next_state_q_values)
+
+                    losses_sqrd.append(np.square(q_target - q_vals[i]))
+
+                with tf.GradientTape() as tape:
+
+                    # Compute loss
+                    loss = tf.convert_to_tensor(np.mean(losses_sqrd))
+
+                # Compute gradients
+                gradients = tape.gradient(loss, model.trainable_variables)
+
+                # Apply gradients to update the network
+                model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                    
+                    
             # decay epsilon
             epsilon *= epsilon_decay
 
@@ -123,7 +154,7 @@ class QwixtAlpha2:
 
             for i in range(len(self.environment.board_size)):
                 for j in range(len(self.environment.board_size)):
-                    q_values_2d[i][j] = q_values[self.index_of_position((i, j))]
+                    q_values_2d[i][j] = q_values[index_of_position((i, j), self.environment)]
             
             return q_values_2d
         
@@ -141,7 +172,7 @@ class QwixtAlpha2:
     """
     def apply_action_mask(self, q_values, illegal_moves):
         for position in illegal_moves: # iterate through every illegal peg
-            index = self.index_of_position(position) # get the q-value index
+            index = index_of_position(position, self.environment) # get the q-value index
             q_values[index] = self.min_q_val
 
         return q_values
@@ -155,7 +186,7 @@ class QwixtAlpha2:
         if np.random.rand() < epsilon:
             # Choose a random legal action
             legal_actions = self.environment.get_all_legal_moves(ENGINE_PLAYER)
-            action = self.index_of_position(random.choice(legal_actions))
+            action = index_of_position(random.choice(legal_actions), self.environment)
         else:
             # Choose the action with the highest Q-value
             action = np.argmax(q_values)
@@ -182,7 +213,7 @@ class QwixtAlpha2:
             raise Exception("The engine is trying to make a move, but it is not the engine's turn")
 
         # get position from action index
-        position = self.position_of_index(action)
+        position = position_of_index(action, env)
         # attempt to add a peg at that position
         peg_added = env.add_peg(position)
         print_if_debug(f"Engine move at {position}", 2)
@@ -191,7 +222,7 @@ class QwixtAlpha2:
 
         # if the game is not over, get a move from the opponent
         if not done:
-            self.opponent_response(env.get_current_state)
+            self.opponent_response(env.get_current_state())
 
         # check to see if game ended on opponent's turn
         done = env.winner != None
@@ -210,46 +241,34 @@ class QwixtAlpha2:
         env.jump_to_state(state)
 
         if env.winner == ENGINE_PLAYER:
-            return 1000
+            return 1000, True
         elif env.winner == -ENGINE_PLAYER:
-            return -1000
+            return -1000, True
         elif env.winner == 0:
-            return -100
+            return -100, True
         else:
-            return 0
+            return 0, False
         
     
     """
         Gets response from opponent
     """
-    def opponent_response(self):
+    def opponent_response(self, state):
         # define environment and opponent
         env = self.environment
         opp = self.opponent_engine
+        env.jump_to_state(state)
 
         # rotate board for opponent to make a move
         env.rotate_board()
 
         # get y and x coordinates (translated because board is rotated)
-        y, x = opp.position_of_best_move(env.get_current_state)        
+        y, x = opp.position_of_best_move(env.get_current_state())        
 
         env.rotate_board()
 
         env.add_peg((x,y))
         
-
-    ### --------------------------- ###
-    ### - Useful helper functions - ###
-    ### --------------------------- ###
-
-    # get action space index of 2d location
-    def index_of_position(self, position):
-        return position[0] * self.environment.board_size + position[1]
-
-    # get the 2d peg location from action space index
-    def position_of_index(self, index):
-        return (index // self.environment.board_size, index % self.environment.board_size)
-    
 
     ### ---------------------- ###
     ### - Gameplay functions - ###
@@ -268,7 +287,42 @@ class QwixtAlpha2:
         q_values = self.predict_q_values()
         masked_q_values = self.apply_action_mask(q_values, env.get_all_illegal_moves(ENGINE_PLAYER))
 
-        return self.position_of_index(np.argmax(masked_q_values))
+        return position_of_index(np.argmax(masked_q_values), env)
+
+
+### --------------------------- ###
+### - Useful helper functions - ###
+### --------------------------- ###
+
+# get action space index of 2d location
+def index_of_position(position, environment):
+    return position[0] * environment.board_size + position[1]
+
+# get the 2d peg location from action space index
+def position_of_index(index, environment):
+    return (index // environment.board_size, index % environment.board_size)
+
+
+def extract_boards_from_nth_elements(list_of_tuples, n):
+    states = list()
+    for i in list_of_tuples:
+        states.append(i[n])
+    
+    boards = list()
+    for i in states:
+        boards.append(i[0])
+
+    boards = np.array(boards)
+
+    return boards
+
+
+def extract_nth_elements(list_of_tuples, n):
+    elements = list()
+    for i in list_of_tuples:
+        elements.append(i[n])
+
+    return elements
 
 
 class ReplayBuffer:
@@ -276,12 +330,12 @@ class ReplayBuffer:
         self.capacity = capacity
         self.buffer = []
 
-    def add_experience(self, state, action, reward, next_state, done):
+    def add_experience(self, state, q_values, action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
-            self.buffer.append((state, action, reward, next_state, done))
+            self.buffer.append([state, q_values, action, reward, next_state, done])
         else:
             index = np.random.randint(0, self.capacity)
-            self.buffer[index] = (state, action, reward, next_state, done)
+            self.buffer[index] = [state, q_values, action, reward, next_state, done]
 
     def sample_batch(self, batch_size):
         return random.sample(self.buffer, min(batch_size, len(self.buffer)))
@@ -303,7 +357,13 @@ class RandomOpponent:
 
         legal_moves = self.env.get_all_legal_moves(ENGINE_PLAYER)
 
-        return np.random.choice(legal_moves)
+        return legal_moves[np.random.randint(0, len(legal_moves))]
+    
+
+
+def print_if_debug(string:str, level):
+    if (DEBUG_LEVEL >= level):
+        print(string)
 
 
 # Initialize replay memory capacity
@@ -311,9 +371,4 @@ class RandomOpponent:
 engine = QwixtAlpha2(BOARD_SIZE, BUFFER_CAPACITY, RandomOpponent(BOARD_SIZE))
 
 # Training loop
-engine.train_model(DEFAULT_NUM_EPISODES, DEFAULT_EPSILON_DECAY)
-
-
-def print_if_debug(string:str, level):
-    if (DEBUG_LEVEL >= level):
-        print(string)
+engine.train_model(DEFAULT_NUM_EPISODES, DEFAULT_EPSILON_DECAY, DEFAULT_GAMMA)
