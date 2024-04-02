@@ -1,6 +1,5 @@
 import twixt
 import twixtui
-import twixtdata
 
 import tensorflow as tf
 from keras import layers, models, saving
@@ -25,12 +24,16 @@ BATCH_SAMPLE_SIZE = 32
 
 class QwixtAlpha2:
 
-    def __init__(self, board_size:int, buffer_capacity:int, opponent_engine, minimum_q_val=-1000000):
+    def __init__(self, board_size:int, buffer_capacity:int, opponent_engine, minimum_q_val=-1000000, visualize_training=False):
         self.environment = twixt.TwixtEnvironment(board_size=board_size)
         self.replay_buffer = ReplayBuffer(capacity=buffer_capacity)
         self.model = self.build_model((board_size, board_size, 9), board_size*board_size)
         self.opponent_engine = opponent_engine
         self.min_q_val = minimum_q_val
+        self.visualize_training = visualize_training
+
+        if self.visualize_training:
+            twixtui.initialize_graphics(self.environment)
 
         self.model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
               loss='mean_squared_error')
@@ -95,36 +98,16 @@ class QwixtAlpha2:
                 next_state, reward, done = self.step(action, state)
 
                 # Store experience in replay memory
-                self.replay_buffer.add_experience(state, q_values, action, reward, next_state, done)
+                self.replay_buffer.add_experience(state, action, reward, next_state, done)
 
                 # Sample random batch from replay memory
                 random_batch = self.replay_buffer.sample_batch(BATCH_SAMPLE_SIZE)
 
-                # Preprocess states from batch
-                states = extract_boards_from_nth_elements(random_batch, 0) # q-value predicted for each state-action pair
-                rewards = extract_nth_elements(random_batch, 3) # reward recieved for each state-action pair
-                next_boards = extract_boards_from_nth_elements(random_batch, 4) # board of next state after action taken
-                dones = extract_nth_elements(random_batch, 5) # whether the state was terminal after action
+                self.train_from_replay_buffer(random_batch, gamma)
 
-                # Assuming you have already defined your state and selected action
-                for i in range(len(random_batch)):
-
-                    # calculate target Q-value
-                    target_q_value = rewards[i] 
-                    if not dones[i]:
-                        target_q_value += gamma * model.predict(np.expand_dims(next_boards[i], axis=0))[0][action]
-
-                    # initialize target q values array and set the selected action to the q value we want
-                    target_q_values = np.zeros(env.board_size * env.board_size)
-                    target_q_values[action] = target_q_value
-
-                    # Create sample weights
-                    sample_weights = np.zeros_like(q_values)
-                    sample_weights[action] = 1.0  # Assign non-zero weight to the selected action
-
-                    # Train the model using train_on_batch
-                    loss = model.train_on_batch(np.expand_dims(states[i], axis=0), np.array(target_q_values), sample_weight=sample_weights)
-                    
+                if self.visualize_training:
+                    twixtui.draw_heatmap(convert_q_indexes_to_positions(env, q_values), self.min_q_val)
+                    twixtui.renderEnvironment(env, True)
                     
             # decay epsilon
             epsilon *= epsilon_decay
@@ -266,6 +249,40 @@ class QwixtAlpha2:
         env.add_peg((x,y))
         
 
+    """
+        Trains model based on a sample from the replay buffer
+    """
+    def train_from_replay_buffer(self, batch, gamma):
+        env = self.environment
+        model = self.model
+
+        # Preprocess states from batch
+        states = extract_boards_from_nth_elements(batch, 0) # q-value predicted for each state-action pair
+        actions = extract_nth_elements(batch, 1)
+        rewards = extract_nth_elements(batch, 2) # reward recieved for each state-action pair
+        next_boards = extract_boards_from_nth_elements(batch, 3) # board of next state after action taken
+        dones = extract_nth_elements(batch, 4) # whether the state was terminal after action
+
+        # Assuming you have already defined your state and selected action
+        for i in range(len(batch)):
+
+            # calculate target Q-value
+            target_q_value = rewards[i] 
+            if not dones[i]:
+                target_q_value += gamma * model.predict(np.expand_dims(next_boards[i], axis=0))[0][actions[i]]
+
+            # initialize target q values array and set the selected action to the q value we want
+            target_q_values = np.zeros(env.board_size * env.board_size)
+            target_q_values[actions[i]] = target_q_value
+
+            # Create sample weights
+            sample_weights = np.zeros(env.board_size * env.board_size)
+            sample_weights[actions[i]] = 1.0  # Assign non-zero weight to the selected action
+
+            # Train the model using train_on_batch
+            loss = model.train_on_batch(np.expand_dims(states[i], axis=0), np.array(target_q_values), sample_weight=sample_weights)
+                    
+
     ### ---------------------- ###
     ### - Gameplay functions - ###
     ### ---------------------- ###
@@ -318,7 +335,30 @@ def extract_nth_elements(list_of_tuples, n):
     for i in list_of_tuples:
         elements.append(i[n])
 
-    return elements
+    return np.array(elements)
+
+
+### --------------------------- ###
+### - Visualization functions - ###
+### --------------------------- ###
+
+def convert_q_indexes_to_positions(env, q_values_1d):
+    matrix = np.zeros((env.board_size, env.board_size))
+
+    for i in range(len(matrix)):
+        sub_matrix = np.zeros(env.board_size)
+
+        for j in range(len(matrix)):
+            sub_matrix[j] = q_values_1d[index_of_position((i,j), env)]
+
+        matrix[i] = sub_matrix
+
+    return matrix
+
+
+### ----------------- ###
+### - Replay Buffer - ###
+### ----------------- ###
 
 
 class ReplayBuffer:
@@ -326,12 +366,12 @@ class ReplayBuffer:
         self.capacity = capacity
         self.buffer = []
 
-    def add_experience(self, state, q_values, action, reward, next_state, done):
+    def add_experience(self, state,  action, reward, next_state, done):
         if len(self.buffer) < self.capacity:
-            self.buffer.append([state, q_values, action, reward, next_state, done])
+            self.buffer.append([state, action, reward, next_state, done])
         else:
             index = np.random.randint(0, self.capacity)
-            self.buffer[index] = [state, q_values, action, reward, next_state, done]
+            self.buffer[index] = [state, action, reward, next_state, done]
 
     def sample_batch(self, batch_size):
         return random.sample(self.buffer, min(batch_size, len(self.buffer)))
@@ -364,7 +404,7 @@ def print_if_debug(string:str, level):
 
 # Initialize replay memory capacity
 # Initialize network with random weights
-engine = QwixtAlpha2(BOARD_SIZE, BUFFER_CAPACITY, RandomOpponent(BOARD_SIZE))
+engine = QwixtAlpha2(BOARD_SIZE, BUFFER_CAPACITY, RandomOpponent(BOARD_SIZE), visualize_training=VISUAL_MODE)
 
 # Training loop
-engine.train_model(DEFAULT_NUM_EPISODES, DEFAULT_EPSILON_DECAY, DEFAULT_GAMMA)
+engine.train_model(DEFAULT_NUM_EPISODES, DEFAULT_EPSILON_DECAY, gamma=DEFAULT_GAMMA)

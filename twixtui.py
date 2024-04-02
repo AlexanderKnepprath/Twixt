@@ -201,7 +201,7 @@ def mainloop():
     
 
 def initialize_graphics(env):
-    init_graph(environment.board_size * GRAPHIC_SIZE, environment.board_size * GRAPHIC_SIZE)
+    init_graph(env.board_size * GRAPHIC_SIZE, env.board_size * GRAPHIC_SIZE)
     set_render_mode(RenderMode.RENDER_AUTO)
 
 def main():
