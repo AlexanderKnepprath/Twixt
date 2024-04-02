@@ -101,35 +101,29 @@ class QwixtAlpha2:
                 random_batch = self.replay_buffer.sample_batch(BATCH_SAMPLE_SIZE)
 
                 # Preprocess states from batch
-                q_vals = extract_nth_elements(random_batch, 1) # q-value predicted for each state-action pair
+                states = extract_boards_from_nth_elements(random_batch, 0) # q-value predicted for each state-action pair
                 rewards = extract_nth_elements(random_batch, 3) # reward recieved for each state-action pair
                 next_boards = extract_boards_from_nth_elements(random_batch, 4) # board of next state after action taken
                 dones = extract_nth_elements(random_batch, 5) # whether the state was terminal after action
 
-                losses_sqrd = list()
-
+                # Assuming you have already defined your state and selected action
                 for i in range(len(random_batch)):
 
-                    # Pass batch of states to policy network
-                    next_state_q_values = model.predict(np.expand_dims(next_boards[i], axis=0))[0]
-
-                    # Compute target q value for action
-                    q_target = rewards[i]
+                    # calculate target Q-value
+                    target_q_value = rewards[i] 
                     if not dones[i]:
-                        q_target += gamma * np.max(next_state_q_values)
+                        target_q_value += gamma * model.predict(np.expand_dims(next_boards[i], axis=0))[0][action]
 
-                    losses_sqrd.append(np.square(q_target - q_vals[i]))
+                    # initialize target q values array and set the selected action to the q value we want
+                    target_q_values = np.zeros(env.board_size * env.board_size)
+                    target_q_values[action] = target_q_value
 
-                with tf.GradientTape() as tape:
+                    # Create sample weights
+                    sample_weights = np.zeros_like(q_values)
+                    sample_weights[action] = 1.0  # Assign non-zero weight to the selected action
 
-                    # Compute loss
-                    loss = tf.convert_to_tensor(np.mean(losses_sqrd))
-
-                # Compute gradients
-                gradients = tape.gradient(loss, model.trainable_variables)
-
-                # Apply gradients to update the network
-                model.optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+                    # Train the model using train_on_batch
+                    loss = model.train_on_batch(np.expand_dims(states[i], axis=0), np.array(target_q_values), sample_weight=sample_weights)
                     
                     
             # decay epsilon
@@ -181,6 +175,8 @@ class QwixtAlpha2:
     """
         Chooses an action based on exploration /or/ exploitation, 
         depending on a random number's relation to epsilon
+
+        :returns: index of the action
     """
     def epsilon_greedy_policy(self, q_values, epsilon):
         if np.random.rand() < epsilon:
