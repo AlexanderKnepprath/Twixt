@@ -81,6 +81,7 @@ class QwixtAlpha2:
 
             # For each timestep
             while not done:
+
                 # Header
                 print_if_debug(f"\nGame {episode+1}, Move {loop} (Model: {model_wins}, Opponent: {opponent_wins}, Draw: {draws})", 1)
 
@@ -102,8 +103,10 @@ class QwixtAlpha2:
 
                 # Sample random batch from replay memory
                 random_batch = self.replay_buffer.sample_batch(BATCH_SAMPLE_SIZE)
-
                 self.train_from_replay_buffer(random_batch, gamma)
+
+                # increment state
+                state = next_state
 
                 if self.visualize_training:
                     twixtui.draw_heatmap(convert_q_indexes_to_positions(env, q_values), self.min_q_val)
@@ -247,7 +250,6 @@ class QwixtAlpha2:
         env.rotate_board()
 
         env.add_peg((x,y))
-        
 
     """
         Trains model based on a sample from the replay buffer
