@@ -408,7 +408,7 @@ class TwixtEnvironment:
         Do exactly the opposite of get_all_legal_moves.
     """
     def get_all_illegal_moves(self, player:int):
-        # Initialize an empty list to store legal moves
+        # Initialize an empty list to store illegal moves
         illegal_moves = []
 
         # Generate all illegal moves

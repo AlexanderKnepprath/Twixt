@@ -1,0 +1,278 @@
+"""
+Deep Q Network training loop for the Twixt board game.
+Integrates with the existing twixt.py logic and twixtui.py visualization.
+"""
+
+import math
+import random
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from collections import deque, namedtuple
+import time
+
+from twixt import TwixtEnvironment
+import twixtui
+from easygraphics import delay_jfps
+
+# ========================================
+# Hyperparameters
+# ========================================
+
+BOARD_SIZE = 24
+CHANNELS = 9
+GAMMA = 0.99
+LR = 1e-4
+BATCH_SIZE = 64
+REPLAY_CAPACITY = 100_000
+MIN_REPLAY = 5_000
+TARGET_UPDATE_FREQ = 1000
+EPS_START = 1.0
+EPS_END = 0.05
+EPS_DECAY = 200_000
+VISUALIZE = True          # ✅ Toggle visualization here
+VISUAL_FPS = 2            # frames per second for updates (2 = ~0.5s per move)
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+# ========================================
+# Replay Buffer
+# ========================================
+
+Transition = namedtuple('Transition', ('state', 'action', 'reward', 'next_state', 'done'))
+
+
+class ReplayBuffer:
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def push(self, *args):
+        self.buffer.append(Transition(*args))
+
+    def sample(self, batch_size):
+        batch = random.sample(self.buffer, batch_size)
+        return Transition(*zip(*batch))
+
+    def __len__(self):
+        return len(self.buffer)
+
+
+# ========================================
+# Neural Network
+# ========================================
+
+class DQN(nn.Module):
+    def __init__(self, board_size=BOARD_SIZE, in_channels=CHANNELS):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, 32, 3, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.conv3 = nn.Conv2d(64, 64, 3, padding=1)
+        self.conv4 = nn.Conv2d(64, 1, 1)
+        self.board_size = board_size
+
+    def forward(self, x):
+        x = F.relu(self.conv1(x))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+        x = self.conv4(x)
+        return x.view(x.size(0), -1)
+
+
+# ========================================
+# Twixt Environment Wrapper
+# ========================================
+
+class TwixtDQNEnv:
+    """
+    Wrapper connecting TwixtEnvironment to the DQN.
+    Uses rotate_board() to normalize geometry for the current player.
+    """
+    def __init__(self, board_size=BOARD_SIZE):
+        self.env = TwixtEnvironment(board_size)
+        self.board_size = board_size
+        self.done = False
+
+    def reset(self):
+        board, current_player, winner = self.env.reset()
+        self.done = False
+        # ensure player 1's perspective after reset
+        if current_player == -1:
+            self.env.rotate_board()
+        return self._get_obs()
+
+    def _get_obs(self):
+        """
+        Get the board as a (C,H,W) numpy array from the current player's perspective.
+        The underlying TwixtEnvironment has already been rotated so that
+        current_player is always +1 (Red orientation).
+        """
+        board = self.env.board.astype(np.float32)
+        return np.transpose(board, (2, 0, 1))
+
+    def step(self, action_index):
+        """
+        Take one move in the Twixt environment.
+        Automatically handles rotation so the next player always views the board
+        in their own (Red) orientation.
+
+        Returns:
+            obs, reward, done, info
+        """
+        r = action_index // self.board_size
+        c = action_index % self.board_size
+        position = (r, c)
+        current_player = self.env.current_player
+        info = {}
+
+        legal_moves = self.env.get_all_legal_moves(current_player)
+        if position not in legal_moves:
+            # Illegal move = small penalty, same player continues
+            return self._get_obs(), -0.5, False, {'illegal': True}
+
+        # Make the move
+        self.env.add_peg(position)
+        done = self.env.winner is not None
+
+        # Default reward for non-terminal step
+        reward = 0.0
+
+        if done:
+            if self.env.winner == current_player:
+                reward = 1.0   # Winner
+                loser_reward = -1.0
+            elif self.env.winner == 0:
+                reward = 0.0
+                loser_reward = 0.0
+            else:
+                reward = -1.0  # Loser
+                loser_reward = 1.0
+
+            # Push an additional transition for the losing player
+            # Only if using self-play, so the losing side sees a step
+            # You could store this directly in your replay buffer from the training loop:
+            # replay.push(next_state_for_loser, action=None, reward=loser_reward, next_state=None, done=True)
+            # Here we just add to info so the training loop can handle it
+            info['terminal_rewards'] = {
+                current_player: reward,
+                -current_player: loser_reward
+            }
+
+        # If the game continues, rotate for the next player’s turn
+        if not done and self.env.current_player == -1:
+            self.env.rotate_board()
+
+        self.done = done
+        return self._get_obs(), reward, done, info
+
+    def legal_actions_mask(self):
+        """Return a boolean mask of legal moves (flattened board)"""
+        mask = np.zeros(self.board_size * self.board_size, dtype=bool)
+        for x, y in self.env.get_all_legal_moves(self.env.current_player):
+            mask[x * self.board_size + y] = True
+        return mask
+
+
+
+# ========================================
+# Helper Functions
+# ========================================
+
+def select_action(policy_net, state_tensor, legal_mask, steps_done):
+    eps_threshold = EPS_END + (EPS_START - EPS_END) * math.exp(-1. * steps_done / EPS_DECAY)
+    if random.random() < eps_threshold:
+        legal_idxs = np.flatnonzero(legal_mask)
+        return int(np.random.choice(legal_idxs))
+    else:
+        with torch.no_grad():
+            qvals = policy_net(state_tensor.to(DEVICE)).cpu().numpy().flatten()
+            qvals[~legal_mask] = -1e9
+            return int(np.argmax(qvals))
+
+
+def compute_loss(batch, policy_net, target_net):
+    state_batch = torch.from_numpy(np.stack(batch.state)).to(DEVICE)
+    next_state_batch = [s for s in batch.next_state if s is not None]
+    action_batch = torch.tensor(batch.action, dtype=torch.long).to(DEVICE)
+    reward_batch = torch.tensor(batch.reward, dtype=torch.float32).to(DEVICE)
+    done_batch = torch.tensor(batch.done, dtype=torch.float32).to(DEVICE)
+
+    q_values = policy_net(state_batch)
+    q_value = q_values.gather(1, action_batch.unsqueeze(1)).squeeze(1)
+
+    target_q = torch.zeros_like(q_value).to(DEVICE)
+    non_final_mask = (done_batch == 0)
+    if non_final_mask.sum() > 0:
+        next_state_tensor = torch.from_numpy(np.stack([s for s in next_state_batch])).to(DEVICE)
+        next_q_policy = policy_net(next_state_tensor)
+        next_actions = torch.argmax(next_q_policy, dim=1)
+        next_q_target = target_net(next_state_tensor)
+        next_q_vals = next_q_target.gather(1, next_actions.unsqueeze(1)).squeeze(1)
+        target_q[non_final_mask] = reward_batch[non_final_mask] + GAMMA * next_q_vals
+
+    target_q[~non_final_mask] = reward_batch[~non_final_mask]
+    loss = F.mse_loss(q_value, target_q.detach())
+    return loss
+
+
+# ========================================
+# Training Loop
+# ========================================
+
+def train(num_episodes=10000):
+    env = TwixtDQNEnv(BOARD_SIZE)
+    policy_net = DQN(BOARD_SIZE, CHANNELS).to(DEVICE)
+    target_net = DQN(BOARD_SIZE, CHANNELS).to(DEVICE)
+    target_net.load_state_dict(policy_net.state_dict())
+    target_net.eval()
+
+    optimizer = optim.Adam(policy_net.parameters(), lr=LR)
+    replay = ReplayBuffer(REPLAY_CAPACITY)
+    steps_done = 0
+
+    render_turn = True
+
+    if VISUALIZE:
+        twixtui.initialize_graphics(env.env)
+
+    for episode in range(num_episodes):
+        obs = env.reset()
+        done = False
+        episode_reward = 0.0
+
+        while not done:
+            state_t = torch.from_numpy(obs).unsqueeze(0)
+            legal_mask = env.legal_actions_mask()
+            action = select_action(policy_net, state_t, legal_mask, steps_done)
+
+            next_obs, reward, done, info = env.step(action)
+            stored_next = None if done else next_obs
+            replay.push(obs, action, reward, stored_next, done)
+            obs = next_obs
+            episode_reward += reward
+            steps_done += 1
+
+            if VISUALIZE and render_turn:
+                twixtui.renderEnvironment(env.env, False)
+
+            render_turn = not render_turn  # Toggle for next step
+
+            if len(replay) > MIN_REPLAY:
+                batch = replay.sample(BATCH_SIZE)
+                loss = compute_loss(batch, policy_net, target_net)
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), 1.0)
+                optimizer.step()
+
+                if steps_done % TARGET_UPDATE_FREQ == 0:
+                    target_net.load_state_dict(policy_net.state_dict())
+
+        print(f"Episode {episode} | Reward: {episode_reward:.2f} | Steps: {steps_done} | Red: {render_turn}")
+
+    torch.save(policy_net.state_dict(), "dqn_twixt.pth")
+    print("Training complete. Model saved as dqn_twixt.pth")
+
+
+if __name__ == "__main__":
+    train(num_episodes=5000)

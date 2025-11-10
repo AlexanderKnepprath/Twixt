@@ -20,7 +20,7 @@ DEFAULT_GAMMA = 1
 
 # QwixtAlpha2 Constants
 ENGINE_PLAYER = 1 # <- DO NOT ALTER
-BATCH_SAMPLE_SIZE = 32
+BATCH_SAMPLE_SIZE = 10
 
 class QwixtAlpha2:
 
@@ -103,7 +103,9 @@ class QwixtAlpha2:
 
                 # Sample random batch from replay memory
                 random_batch = self.replay_buffer.sample_batch(BATCH_SAMPLE_SIZE)
-                self.train_from_replay_buffer(random_batch, gamma)
+                loss = self.train_from_replay_buffer(random_batch, gamma)
+
+                print_if_debug(loss, 1)
 
                 # increment state
                 state = next_state
@@ -111,10 +113,24 @@ class QwixtAlpha2:
                 if self.visualize_training:
                     twixtui.draw_heatmap(convert_q_indexes_to_positions(env, q_values), self.min_q_val)
                     twixtui.renderEnvironment(env, True)
-                    
+
+                # increment loop
+                loop += 1
+
+                # check if there is a win or draw, increment score appropriately
+                if env.winner == 1:
+                    model_wins += 1
+                elif env.winner == -1:
+                    opponent_wins += 1
+                elif env.winner == 0:
+                    draws += 1
+
             # decay epsilon
             epsilon *= epsilon_decay
 
+
+    def save_model(self, name:str):
+        self.model.save(name)
 
     ### -------------------------- ###
     ### - Training Sub-functions - ###
@@ -265,8 +281,12 @@ class QwixtAlpha2:
         next_boards = extract_boards_from_nth_elements(batch, 3) # board of next state after action taken
         dones = extract_nth_elements(batch, 4) # whether the state was terminal after action
 
+        counter = 0
+        loss = 0
+
         # Assuming you have already defined your state and selected action
         for i in range(len(batch)):
+            counter += 1
 
             # calculate target Q-value
             target_q_value = rewards[i] 
@@ -282,7 +302,9 @@ class QwixtAlpha2:
             sample_weights[actions[i]] = 1.0  # Assign non-zero weight to the selected action
 
             # Train the model using train_on_batch
-            loss = model.train_on_batch(np.expand_dims(states[i], axis=0), np.array(target_q_values), sample_weight=sample_weights)
+            loss += model.train_on_batch(np.expand_dims(states[i], axis=0), np.array(target_q_values), sample_weight=sample_weights)
+
+        return loss/counter
                     
 
     ### ---------------------- ###
@@ -410,3 +432,5 @@ engine = QwixtAlpha2(BOARD_SIZE, BUFFER_CAPACITY, RandomOpponent(BOARD_SIZE), vi
 
 # Training loop
 engine.train_model(DEFAULT_NUM_EPISODES, DEFAULT_EPSILON_DECAY, gamma=DEFAULT_GAMMA)
+
+engine.save_model("qwixtalpha2.keras")
